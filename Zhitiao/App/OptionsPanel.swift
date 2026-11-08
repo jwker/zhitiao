@@ -15,9 +15,10 @@ struct OptionsPanel: View {
                 switch tab {
                 case .background: backgroundTab
                 case .align: alignTab
-                case .element: elementTab
-                case .emphasis: emphasisTab
-                case .illustration: illustrationTab
+                // 依赖 AI，暂时下线
+                // case .element: elementTab
+                // case .emphasis: emphasisTab
+                // case .illustration: illustrationTab
                 case .font: fontTab
                 }
             }
@@ -66,6 +67,7 @@ struct OptionsPanel: View {
         }
     }
 
+    /* AI 相关，暂时下线
     /// 需要时才调模型，不给全局按钮
     private func generateButton(title: String) -> some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -99,6 +101,8 @@ struct OptionsPanel: View {
         }
     }
 
+    */
+
     private func isCurrentPalette(_ hex: String) -> Bool {
         spec.palette.bg.hexString.uppercased() == hex.uppercased()
     }
@@ -131,6 +135,7 @@ struct OptionsPanel: View {
         }
     }
 
+    /*
     // MARK: - 元素
 
     private var elementTab: some View {
@@ -146,6 +151,9 @@ struct OptionsPanel: View {
         }
     }
 
+    */
+
+    /*
     // MARK: - 强调
 
     private var emphasisTab: some View {
@@ -169,6 +177,9 @@ struct OptionsPanel: View {
         }
     }
 
+    */
+
+    /*
     // MARK: - 插画
 
     private var illustrationTab: some View {
@@ -214,6 +225,8 @@ struct OptionsPanel: View {
         }
         .buttonStyle(.plain)
     }
+
+    */
 
     // MARK: - 字体（含字号）
 

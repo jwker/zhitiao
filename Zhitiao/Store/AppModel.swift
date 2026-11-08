@@ -68,10 +68,10 @@ final class AppModel: ObservableObject {
             render()
             persist()
 
-            // 调试用：--generate 立刻跑一次模型分析
-            if arguments.contains("--generate") {
-                Task { await generate() }
-            }
+            // 调试用：--generate 立刻跑一次模型分析（AI 相关，暂时下线）
+            // if arguments.contains("--generate") {
+            //     Task { await generate() }
+            // }
         }
         // 调试用：--new 模拟点「新建」，--type=… 模拟输入，--end 模拟点「完成」
         if arguments.contains("--new") {
@@ -210,8 +210,11 @@ final class AppModel: ObservableObject {
     var styleSummary: String {
         guard let doc = current else { return "" }
         let spec = doc.makeSpec()
-        return [spec.background.name, spec.align.h.name, spec.emphasisStyle.name].joined(separator: " · ")
+        // 强调下线后不再显示在摘要里
+        return [spec.background.name, spec.align.h.name, SizePreset.name(for: spec.fontSize)].joined(separator: " · ")
     }
+
+    /* AI 相关，暂时下线
 
     // MARK: - 生成
 
@@ -269,6 +272,8 @@ final class AppModel: ObservableObject {
             }
         }
     }
+
+    */
 
     // MARK: - 渲染
 

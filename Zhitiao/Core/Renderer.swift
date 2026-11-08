@@ -89,9 +89,9 @@ enum Renderer {
         let size = max(24, spec.fontSize)
         var contentWidth = minWidth - padding.left - padding.right
 
-        // 左对齐且有开头符号时，先扣掉符号占位
-        let symbolSpace: CGFloat = (spec.align.h == .left && !spec.element.value.isEmpty && spec.element.kind == .symbol)
-            ? 78 : 0
+        // 左对齐且有开头符号时扣掉符号占位。元素装饰下线后恒为 0，恢复时改回来即可。
+        // let symbolSpace: CGFloat = (spec.align.h == .left && !spec.element.value.isEmpty && spec.element.kind == .symbol) ? 78 : 0
+        let symbolSpace: CGFloat = 0
         contentWidth -= symbolSpace
 
         // 每一行按当前字号折行
@@ -182,18 +182,18 @@ enum Renderer {
         ctx.fill(CGRect(x: 0, y: 0, width: W, height: H))
         Backgrounds.paint(type: spec.background, palette: spec.palette, in: ctx, width: W, height: H)
 
-        // 元素装饰
-        drawElement(spec.element, spec: spec, in: ctx, width: W, height: H, layout: layout)
+        // 元素装饰：依赖 AI，暂时下线
+        // drawElement(spec.element, spec: spec, in: ctx, width: W, height: H, layout: layout)
 
         // 文字
         for line in layout.lines {
             drawLine(line, spec: spec, in: ctx)
         }
 
-        // 插画
-        if let illustration = spec.illustration {
-            drawIllustration(illustration, spec: spec, in: ctx, width: W, height: H, layout: layout)
-        }
+        // 插画：依赖 AI，暂时下线
+        // if let illustration = spec.illustration {
+        //     drawIllustration(illustration, spec: spec, in: ctx, width: W, height: H, layout: layout)
+        // }
     }
 
     private static func drawElement(
@@ -274,23 +274,25 @@ enum Renderer {
             cursor += width
         }
 
-        // 强调装饰画在文字下面
-        if spec.emphasisStyle != .none {
-            for segment in segments where segment.key {
-                Emphasis.draw(
-                    style: spec.emphasisStyle,
-                    rect: CGRect(x: segment.x, y: baseline, width: segment.width, height: line.size),
-                    size: line.size,
-                    color: spec.palette.accent,
-                    paletteIsDark: spec.palette.bg.luminance < 0.4,
-                    in: ctx
-                )
-            }
-        }
+        // 强调装饰：依赖 AI，暂时下线（只画纯文字）
+        // if spec.emphasisStyle != .none {
+        //     for segment in segments where segment.key {
+        //         Emphasis.draw(
+        //             style: spec.emphasisStyle,
+        //             rect: CGRect(x: segment.x, y: baseline, width: segment.width, height: line.size),
+        //             size: line.size,
+        //             color: spec.palette.accent,
+        //             paletteIsDark: spec.palette.bg.luminance < 0.4,
+        //             in: ctx
+        //         )
+        //     }
+        // }
 
         for segment in segments {
             let weight: CGFloat = segment.key ? max(spec.fontWeight, 800) : spec.fontWeight
-            let color = (segment.key && spec.emphasisStyle == .color) ? spec.palette.accent : spec.palette.ink
+            // 强调下线后统一用正文色
+            // let color = (segment.key && spec.emphasisStyle == .color) ? spec.palette.accent : spec.palette.ink
+            let color = spec.palette.ink
             drawText(
                 segment.text,
                 at: CGPoint(x: segment.x, y: baseline),

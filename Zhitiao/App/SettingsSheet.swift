@@ -26,23 +26,45 @@ struct SettingsSheet: View {
         NavigationStack {
             Form {
                 Section {
+                    LabeledContent("版本", value: Self.version)
+                } footer: {
+                    Text("纸条 · 把文字做成一张排版精美的图片")
+                }
+            }
+            .navigationTitle("设置")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
+            }
+        }
+    }
+
+    /// 1.0 (1)
+    static var version: String {
+        let info = Bundle.main.infoDictionary
+        let short = info?["CFBundleShortVersionString"] as? String ?? "1.0"
+        let build = info?["CFBundleVersion"] as? String ?? "1"
+        return "\(short) (\(build))"
+    }
+
+    /* AI 相关设置暂时下线，代码保留在这里，恢复时把上面的 body 换回下面这段即可。
+       同时需要恢复：CardTab 的 element/emphasis/illustration 三个 case、
+       OptionsPanel 里对应的三段实现、Renderer 里的元素/强调/插画绘制。
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section {
                     Toggle("调试模式（不联网，用本地规则）", isOn: $mock)
-                        .onChange(of: mock) { _, value in
-                            // 调试模式下不碰模型，避免误以为在调接口
-                            if value { testResult = nil }
-                        }
                 } footer: {
                     Text("打开调试模式时不发请求，强调词和插画都由本地规则给。")
                 }
 
                 Section {
                     TextField("请求地址", text: $baseURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
                     TextField("模型名称", text: $modelName)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
                     keyField(title: "API Key", text: $apiKey, visible: $showTextKey)
                 } header: {
                     Text("文本模型")
@@ -52,23 +74,14 @@ struct SettingsSheet: View {
 
                 Section {
                     TextField("请求地址", text: $imageBaseURL)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
-                        .keyboardType(.URL)
                     TextField("模型名称", text: $imageModel)
-                        .textInputAutocapitalization(.never)
-                        .autocorrectionDisabled()
                     keyField(title: "API Key", text: $imageKey, visible: $showImageKey)
                 } header: {
                     Text("插画模型（可留空）")
-                } footer: {
-                    Text("填了 Key 才会真的画插画；留空就用内置的 18 个简笔画。插画风格固定为彩色简笔画，不随模型变化。")
                 }
 
                 Section {
-                    Button {
-                        Task { await test() }
-                    } label: {
+                    Button { Task { await test() } } label: {
                         HStack(spacing: 6) {
                             if testing { ProgressView().controlSize(.small) }
                             Text(testing ? "正在测试…" : "测试连接")
@@ -82,26 +95,12 @@ struct SettingsSheet: View {
                             .foregroundStyle(.secondary)
                     }
                 }
-
-                Section {
-                    Text("配置只保存在这台设备上，不会上传，也不写进代码。")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                    Text(DocumentStore.shared.isCloudAvailable
-                         ? "iCloud 已连接，纸条会在设备间同步（不含 Key）。"
-                         : "iCloud 不可用，纸条只保存在本机。")
-                        .font(.system(size: 13))
-                        .foregroundStyle(.secondary)
-                }
             }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") {
-                        save()
-                        dismiss()
-                    }
+                    Button("保存") { save(); dismiss() }
                 }
                 ToolbarItem(placement: .cancellationAction) {
                     Button("取消") { dismiss() }
@@ -110,7 +109,9 @@ struct SettingsSheet: View {
             .onAppear(perform: load)
         }
     }
+    */
 
+    /* AI 相关，暂时下线
     @ViewBuilder
     private func keyField(title: String, text: Binding<String>, visible: Binding<Bool>) -> some View {
         HStack {
@@ -172,4 +173,6 @@ struct SettingsSheet: View {
             testResult = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
+}
+    */
 }
