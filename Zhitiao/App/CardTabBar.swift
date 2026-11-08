@@ -43,7 +43,7 @@ struct CardTabBar: View {
                 } label: {
                     VStack(spacing: 9) {
                         Text(tab.name)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 14))
                             .foregroundStyle(selection == tab ? Theme.ink : Theme.muted)
 
                         Rectangle()

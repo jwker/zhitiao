@@ -185,7 +185,7 @@ struct CardScreen: View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
                 Text("正文")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
                 Spacer()
                 Text("\(model.currentLayoutLineCount) 行 · \(charCount(text)) 字")

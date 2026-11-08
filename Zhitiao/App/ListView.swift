@@ -33,7 +33,7 @@ struct ListView: View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(document.title)
-                    .font(.system(size: 16, weight: .medium))
+                    .font(.system(size: 17))
                     .foregroundStyle(Theme.ink)
                     .lineLimit(1)
 
@@ -81,7 +81,7 @@ struct ListView: View {
                 .padding(.bottom, 8)
 
             Text("还没有纸条")
-                .font(.system(size: 18, weight: .medium))
+                .font(.system(size: 17))
                 .foregroundStyle(Theme.ink)
 
             Text("写一段话，它会被排成一张能发出去的图片。")

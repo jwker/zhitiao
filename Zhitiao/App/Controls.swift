@@ -9,7 +9,7 @@ struct OptionButton: View {
     var body: some View {
         Button(action: action) {
             Text(title)
-                .font(.system(size: 14, weight: .medium))
+                .font(.system(size: 14))
                 .foregroundStyle(active ? Theme.bg : Theme.ink)
                 .padding(.horizontal, 12)
                 .frame(height: 36)
@@ -34,7 +34,7 @@ struct GroupLabel: View {
     var body: some View {
         HStack(alignment: .firstTextBaseline) {
             Text(title)
-                .font(.system(size: 13, weight: .medium))
+                .font(.system(size: 13))
                 .foregroundStyle(Theme.muted)
             Spacer(minLength: 12)
             if let value {

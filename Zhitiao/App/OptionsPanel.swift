@@ -44,7 +44,7 @@ struct OptionsPanel: View {
                     model.clearEmoji()
                 } label: {
                     Text("不放")
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 14))
                         .foregroundStyle(spec.emoji.isEmpty ? Theme.bg : Theme.ink)
                         .padding(.horizontal, 12)
                         .frame(height: 40)
@@ -94,7 +94,7 @@ struct OptionsPanel: View {
             ForEach(EmojiCatalog.groups) { group in
                 VStack(alignment: .leading, spacing: 6) {
                     Text("\(group.name)  \(group.emoji.count)")
-                        .font(.system(size: 12, weight: .medium))
+                        .font(.system(size: 12))
                         .foregroundStyle(Theme.muted)
 
                     ScrollView(.horizontal, showsIndicators: false) {
@@ -171,7 +171,7 @@ struct OptionsPanel: View {
                         ProgressView().controlSize(.small)
                     }
                     Text(model.isBusy ? "正在分析…" : title)
-                        .font(.system(size: 14, weight: .medium))
+                        .font(.system(size: 14))
                 }
                 .foregroundStyle(Theme.ink)
                 .padding(.horizontal, 12)

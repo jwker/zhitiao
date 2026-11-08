@@ -47,7 +47,7 @@ struct ContentView: View {
                     model.backToList()
                 } label: {
                     Image(systemName: "chevron.left")
-                        .font(.system(size: 17, weight: .semibold))
+                        .font(.system(size: 17, weight: .medium))
                         .foregroundStyle(Theme.ink)
                 }
                 .frame(width: 32, height: 32)
@@ -57,7 +57,7 @@ struct ContentView: View {
                     .frame(width: 18, height: 18)
 
                 Text("纸条")
-                    .font(.system(size: 20, weight: .medium))
+                    .font(.system(size: 17))
                     .foregroundStyle(Theme.ink)
             }
 
@@ -79,7 +79,7 @@ struct ContentView: View {
                     model.createDocument()
                 } label: {
                     Image(systemName: "plus")
-                        .font(.system(size: 18, weight: .medium))
+                        .font(.system(size: 20))
                         .foregroundStyle(Theme.ink)
                 }
                 .frame(width: 32, height: 32)
@@ -91,13 +91,13 @@ struct ContentView: View {
                         model.endEditing()
                     } label: {
                         Text("完成")
-                            .font(.system(size: 16, weight: .medium))
+                            .font(.system(size: 15))
                             .foregroundStyle(Theme.ink)
                     }
                 } else {
                     Button(action: export) {
                         Text("导出")
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 14))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12)
                             .frame(height: 32)
