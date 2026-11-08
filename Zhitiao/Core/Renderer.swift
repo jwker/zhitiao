@@ -124,8 +124,10 @@ enum Renderer {
         // 但字号很大 + emoji 很多时要收一收，别超出卡片宽度
         let emojiCount = max(1, spec.emoji.count)
         let emojiSize = min(size * 2, contentWidth * 0.98 / CGFloat(emojiCount))
-        let emojiHeight = hasEmoji ? emojiSize * 1.15 : 0
-        let emojiGap = hasEmoji ? size * 0.72 : 0
+        // 行盒要装得下 emoji 的升部（≈1.0×字号）和降部（≈0.31×字号），否则字形会溢到间距里
+        let emojiHeight = hasEmoji ? emojiSize * 1.32 : 0
+        // 与正文的间距按 emoji 尺寸算，emoji 越大空隙越松
+        let emojiGap = hasEmoji ? emojiSize * 0.34 : 0
 
         func blockHeight(_ gap: CGFloat) -> CGFloat {
             let textBlock = CGFloat(wrapped.count) * lineHeight + CGFloat(max(0, wrapped.count - 1)) * gap
@@ -404,7 +406,7 @@ enum Renderer {
         let attributed = NSAttributedString(string: line.text, attributes: [.font: font])
         let ctLine = CTLineCreateWithAttributedString(attributed)
 
-        // 基线放在这个行盒的底部附近，emoji 的升部约等于字号
+        // 基线：emoji 的升部约等于字号，所以基线在行盒顶部往下一个字号处
         let baseline = line.y + line.size
 
         ctx.saveGState()
