@@ -205,7 +205,8 @@ struct CardSpec {
     var lines: [String] = []
     var font: FontFamily = .sans
     var fontWeight: CGFloat = 900
-    var maxSize: CGFloat = 190
+    /// 字号由用户直接调，不再区分「上限」和「实际值」
+    var fontSize: CGFloat = 100
     var align: (h: AlignH, v: AlignV) = (.center, .middle)
     var palette: Palette = .make(bgHex: "#FFFFFF", accentHex: "#E23D28")
     var background: BackgroundType = .solid
@@ -214,7 +215,7 @@ struct CardSpec {
     var emphasisWords: [String] = []
     var illustration: Illustration?
 
-    static let canvasSize = CGSize(width: 1080, height: 1440)
+
 }
 
 /// 一张插画：图像模型出的图，或退回内置简笔画。

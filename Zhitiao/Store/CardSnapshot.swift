@@ -6,7 +6,7 @@ struct CardSnapshot: Codable, Equatable {
     var lines: [String] = []
     var fontFamily: String = "sans"
     var fontWeight: Double = 900
-    var maxSize: Double = 190
+    var fontSize: Double = 100
     var alignH: String = "center"
     var alignV: String = "middle"
     var bgHex: String = "#FFFFFF"
@@ -21,11 +21,40 @@ struct CardSnapshot: Codable, Equatable {
     /// 内置简笔画的 id：重新打开时用它还原插画
     var illustrationFallback: String?
 
+    /// 老版本存的是 maxSize（字号上限），读旧数据时当成字号用
+    private enum LegacyKey: String, CodingKey {
+        case maxSize
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let legacy = try decoder.container(keyedBy: LegacyKey.self)
+
+        lines = try container.decode([String].self, forKey: .lines)
+        fontFamily = try container.decode(String.self, forKey: .fontFamily)
+        fontWeight = try container.decode(Double.self, forKey: .fontWeight)
+        fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize)
+            ?? legacy.decodeIfPresent(Double.self, forKey: .maxSize)
+            ?? 100
+        alignH = try container.decode(String.self, forKey: .alignH)
+        alignV = try container.decode(String.self, forKey: .alignV)
+        bgHex = try container.decode(String.self, forKey: .bgHex)
+        inkHex = try container.decode(String.self, forKey: .inkHex)
+        accentHex = try container.decode(String.self, forKey: .accentHex)
+        background = try container.decode(String.self, forKey: .background)
+        elementID = try container.decode(String.self, forKey: .elementID)
+        emphasisStyle = try container.decode(String.self, forKey: .emphasisStyle)
+        emphasisWords = try container.decode([String].self, forKey: .emphasisWords)
+        illustrationID = try container.decodeIfPresent(String.self, forKey: .illustrationID)
+        illustrationSubject = try container.decodeIfPresent(String.self, forKey: .illustrationSubject)
+        illustrationFallback = try container.decodeIfPresent(String.self, forKey: .illustrationFallback)
+    }
+
     init(spec: CardSpec) {
         lines = spec.lines
         fontFamily = spec.font.rawValue
         fontWeight = spec.fontWeight
-        maxSize = spec.maxSize
+        fontSize = spec.fontSize
         alignH = spec.align.h.rawValue
         alignV = spec.align.v.rawValue
         bgHex = spec.palette.bg.hexString
@@ -45,7 +74,7 @@ struct CardSnapshot: Codable, Equatable {
         spec.lines = lines
         spec.font = FontFamily(rawValue: fontFamily) ?? .sans
         spec.fontWeight = CGFloat(fontWeight)
-        spec.maxSize = CGFloat(maxSize)
+        spec.fontSize = CGFloat(fontSize)
         spec.align = (
             AlignH(rawValue: alignH) ?? .center,
             AlignV(rawValue: alignV) ?? .middle

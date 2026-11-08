@@ -87,7 +87,23 @@ final class AppModel: ObservableObject {
                         try? await Task.sleep(nanoseconds: 700_000_000)
                         endEditing()
                     }
+                    if arguments.contains("--dump"), let image = exportImage(), let data = image.pngData() {
+                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                            .appendingPathComponent("zhitiao-card.png")
+                        try? data.write(to: url)
+                    }
                 }
+            }
+        }
+
+        // 调试用：--size=80 指定字号
+        if let sizeArg = arguments.first(where: { $0.hasPrefix("--size=") }),
+           let value = Double(sizeArg.replacingOccurrences(of: "--size=", with: "")) {
+            if let index = documents.firstIndex(where: { $0.id == currentID }) {
+                var spec = documents[index].makeSpec()
+                spec.fontSize = CGFloat(value)
+                documents[index].snapshot = CardSnapshot(spec: spec)
+                render()
             }
         }
 

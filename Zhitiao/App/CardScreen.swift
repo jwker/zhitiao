@@ -64,8 +64,8 @@ struct CardScreen: View {
                     if let preview = model.preview {
                         Image(uiImage: preview)
                             .resizable()
-                            .aspectRatio(3.0 / 4.0, contentMode: .fit)
-                            .frame(maxHeight: 330)
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity, maxHeight: 330)
                             .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
                             .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
                     } else {
@@ -103,10 +103,12 @@ struct CardScreen: View {
             HStack(spacing: 12) {
                 Group {
                     if let peek = model.peek {
+                        // 长卡片只露上面 3:4 那一段，缩略图尺寸保持稳定
                         Image(uiImage: peek)
                             .resizable()
-                            .aspectRatio(3.0 / 4.0, contentMode: .fit)
+                            .scaledToFill()
                             .frame(width: 63, height: 84)
+                            .clipped()
                             .clipShape(RoundedRectangle(cornerRadius: 3, style: .continuous))
                             .shadow(color: .black.opacity(0.14), radius: 5, y: 2)
                     } else {

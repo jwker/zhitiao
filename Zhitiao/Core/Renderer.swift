@@ -3,10 +3,10 @@ import CoreText
 import Foundation
 import UIKit
 
-/// 排版引擎：从文字到一张 1080×1440 的卡片图。
+/// 排版引擎：从文字到一张卡片图。
 ///
-/// 流程与 H5 版一致：
-///   切行 → 宽度/高度双向约束算字号 → 行距撑开 → 垂直定位 → 分层绘制
+/// 字号是用户直接给的；卡片宽度固定 1080，高度跟着内容长（最少 1440，即 3:4）。
+/// 流程：切行 → 按字号折行 → 算高度 → 垂直定位 → 分层绘制
 enum Renderer {
 
     // MARK: - 排版
@@ -22,6 +22,8 @@ enum Renderer {
 
     struct Layout {
         var size: CGFloat
+        /// 卡片最终高度：内容多就长，最少 1440
+        var height: CGFloat
         var lineHeight: CGFloat
         var gap: CGFloat
         var blockHeight: CGFloat
@@ -31,7 +33,11 @@ enum Renderer {
     static let padding = (top: CGFloat(120), right: CGFloat(96), bottom: CGFloat(132), left: CGFloat(96))
     static let lineHeightRatio: CGFloat = 1.34
     static let gapRatio: CGFloat = 0.3
-    static let fillRatio: CGFloat = 0.72
+    /// 卡片的最小高度：内容再少也不低于 3:4
+    static let minWidth: CGFloat = 1080
+    static let minHeight: CGFloat = 1440
+    /// 标点不允许出现在行首
+    static let noLineStart = "，。！？、；：）】》」』”’%·,.;:!?)]}\"'"
 
     /// 取指定字重的字体，找不到就逐级回落
     static func font(for spec: CardSpec, size: CGFloat, weight: CGFloat? = nil) -> UIFont {
@@ -51,66 +57,76 @@ enum Renderer {
         return ceil(width)
     }
 
-    /// 算字号：宽度约束与高度约束取小者
-    static func fitSize(lines: [String], spec: CardSpec, contentWidth: CGFloat, contentHeight: CGFloat) -> CGFloat {
-        let unit: CGFloat = 100
-        var maxUnit: CGFloat = 0
-        for line in lines {
-            let width = measure(line, spec: spec, size: unit)
-            maxUnit = max(maxUnit, width / unit)
-        }
-        let widthLimit = maxUnit > 0 ? (contentWidth * 0.94) / maxUnit : spec.maxSize
-        var size = min(spec.maxSize, widthLimit)
+    /// 一行放不下就按字折行，标点不落行首
+    static func wrap(_ text: String, spec: CardSpec, size: CGFloat, maxWidth: CGFloat) -> [String] {
+        guard !text.isEmpty else { return [] }
+        var lines: [String] = []
+        var current = ""
 
-        func height(_ s: CGFloat) -> CGFloat {
-            CGFloat(lines.count) * s * lineHeightRatio + CGFloat(max(0, lines.count - 1)) * s * gapRatio
-        }
-
-        if height(size) > contentHeight * fillRatio {
-            var low: CGFloat = 18
-            var high = size
-            while high - low > 1 {
-                let mid = (low + high) / 2
-                if height(mid) <= contentHeight * fillRatio { low = mid } else { high = mid }
+        for character in text {
+            let candidate = current + String(character)
+            if !current.isEmpty, measure(candidate, spec: spec, size: size) > maxWidth {
+                if noLineStart.contains(character), current.count > 1 {
+                    // 标点不能起头：把上一个字一起带到下一行
+                    let carried = String(current.removeLast())
+                    lines.append(current)
+                    current = carried + String(character)
+                } else {
+                    lines.append(current)
+                    current = String(character)
+                }
+            } else {
+                current = candidate
             }
-            size = low
         }
-        return max(18, round(size))
+
+        if !current.isEmpty { lines.append(current) }
+        return lines
     }
 
-    static func layout(spec: CardSpec, lines: [String]) -> Layout {
-        var contentWidth = spec.canvasWidth - padding.left - padding.right
-        let contentHeight = spec.canvasHeight - padding.top - padding.bottom
+    /// 排版：字号由用户直接给定，卡片高度跟着内容长
+    static func layout(spec: CardSpec, lines inputLines: [String]) -> Layout {
+        let size = max(24, spec.fontSize)
+        var contentWidth = minWidth - padding.left - padding.right
 
-        // 左对齐时，开头符号要占位置，先从可用宽度里扣掉
+        // 左对齐且有开头符号时，先扣掉符号占位
         let symbolSpace: CGFloat = (spec.align.h == .left && !spec.element.value.isEmpty && spec.element.kind == .symbol)
             ? 78 : 0
         contentWidth -= symbolSpace
 
-        let size = fitSize(lines: lines, spec: spec, contentWidth: contentWidth, contentHeight: contentHeight)
+        // 每一行按当前字号折行
+        var wrapped: [String] = []
+        for line in inputLines {
+            wrapped.append(contentsOf: wrap(line, spec: spec, size: size, maxWidth: contentWidth))
+        }
+        if wrapped.isEmpty { wrapped = [""] }
+
         let lineHeight = size * lineHeightRatio
         var gap = size * gapRatio
-        var blockHeight = CGFloat(lines.count) * lineHeight + CGFloat(max(0, lines.count - 1)) * gap
+        let minContentHeight = minHeight - padding.top - padding.bottom
 
-        // 文字块比卡片矮时把行距撑开（最多 1.9 倍）
-        if lines.count > 1 {
-            let target = contentHeight * 0.82
-            if blockHeight < target {
-                gap *= min(1.9, target / blockHeight)
-                blockHeight = CGFloat(lines.count) * lineHeight + CGFloat(max(0, lines.count - 1)) * gap
-            }
+        func blockHeight(_ gap: CGFloat) -> CGFloat {
+            CGFloat(wrapped.count) * lineHeight + CGFloat(max(0, wrapped.count - 1)) * gap
         }
+
+        // 内容少时把行距撑开，让短句在 3:4 的卡上也站得住
+        if wrapped.count > 1, blockHeight(gap) < minContentHeight * 0.82 {
+            gap *= min(1.9, minContentHeight * 0.82 / blockHeight(gap))
+        }
+
+        let contentHeight = max(minContentHeight, blockHeight(gap))
+        let height = padding.top + contentHeight + padding.bottom
 
         var top: CGFloat = 0
         switch spec.align.v {
         case .top: top = 0
-        case .middle: top = max(0, (contentHeight - blockHeight) / 2)
-        case .bottom: top = max(0, contentHeight - blockHeight)
+        case .middle: top = max(0, (contentHeight - blockHeight(gap)) / 2)
+        case .bottom: top = max(0, contentHeight - blockHeight(gap))
         }
 
         var positioned: [PositionedLine] = []
         var cursor = top
-        for text in lines {
+        for text in wrapped {
             let width = measure(text, spec: spec, size: size)
             var x: CGFloat = 0
             switch spec.align.h {
@@ -131,7 +147,14 @@ enum Renderer {
             cursor += lineHeight + gap
         }
 
-        return Layout(size: size, lineHeight: lineHeight, gap: gap, blockHeight: blockHeight, lines: positioned)
+        return Layout(
+            size: size,
+            height: height,
+            lineHeight: lineHeight,
+            gap: gap,
+            blockHeight: blockHeight(gap),
+            lines: positioned
+        )
     }
 
     // MARK: - 绘制
@@ -140,19 +163,19 @@ enum Renderer {
         let format = UIGraphicsImageRendererFormat()
         format.scale = scale
         format.opaque = true
+        let layout = layout(spec: spec, lines: lines)
         let renderer = UIGraphicsImageRenderer(
-            size: CGSize(width: spec.canvasWidth, height: spec.canvasHeight),
+            size: CGSize(width: Renderer.minWidth, height: layout.height),
             format: format
         )
         return renderer.image { ctx in
-            draw(spec: spec, lines: lines, in: ctx.cgContext)
+            draw(spec: spec, lines: lines, layout: layout, in: ctx.cgContext)
         }
     }
 
-    static func draw(spec: CardSpec, lines: [String], in ctx: CGContext) {
-        let W = spec.canvasWidth
-        let H = spec.canvasHeight
-        let layout = layout(spec: spec, lines: lines)
+    static func draw(spec: CardSpec, lines: [String], layout: Layout, in ctx: CGContext) {
+        let W = minWidth
+        let H = layout.height
 
         // 背景
         ctx.setFillColor(spec.palette.bg.cgColor)
@@ -405,11 +428,4 @@ enum Renderer {
         default: return .heavy
         }
     }
-}
-
-// MARK: - CardSpec 便利属性
-
-extension CardSpec {
-    var canvasWidth: CGFloat { 1080 }
-    var canvasHeight: CGFloat { 1440 }
 }

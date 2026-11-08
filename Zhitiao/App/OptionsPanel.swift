@@ -231,18 +231,18 @@ struct OptionsPanel: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                GroupLabel(title: "字号上限", value: "\(Int(spec.maxSize))px")
+                GroupLabel(title: "字号", value: "\(Int(spec.fontSize))px")
                 Slider(
                     value: Binding(
-                        get: { spec.maxSize },
-                        set: { value in model.update { $0.maxSize = value } }
+                        get: { spec.fontSize },
+                        set: { value in model.update { $0.fontSize = value } }
                     ),
-                    in: 90...240,
-                    step: 4
+                    in: 48...220,
+                    step: 2
                 )
                 .tint(Theme.accent)
 
-                Text("这是上限，实际字号会按内容多少自动往下收。")
+                Text("字放大后放不下的行会自动折行，卡片高度跟着变长。")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
             }

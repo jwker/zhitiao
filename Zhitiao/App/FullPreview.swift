@@ -11,12 +11,15 @@ struct FullPreview: View {
 
             VStack(spacing: 24) {
                 if let image {
-                    Image(uiImage: image)
-                        .resizable()
-                        .aspectRatio(3.0 / 4.0, contentMode: .fit)
-                        .frame(maxHeight: 480)
-                        .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                        .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
+                    ScrollView {
+                        Image(uiImage: image)
+                            .resizable()
+                            .scaledToFit()
+                            .frame(maxWidth: .infinity)
+                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                            .shadow(color: .black.opacity(0.5), radius: 24, y: 10)
+                    }
+                    .frame(maxHeight: 560)
                 }
 
                 Text("点任意处返回")
