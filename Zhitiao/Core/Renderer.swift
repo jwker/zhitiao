@@ -41,12 +41,22 @@ enum Renderer {
     /// 标点不允许出现在行首
     static let noLineStart = "，。！？、；：）】》」』”’%·,.;:!?)]}\"'"
 
-    /// 取指定字重的字体，找不到就逐级回落
+    /// 取字体。
+    ///
+    /// 黑体走 iOS 系统字体（`UIFont.systemFont`）：西文是 San Francisco，中文自动落到苹方，
+    /// 这就是 iOS 的默认观感。宋体/楷体保留给老纸条，按字体名取，取不到再回落到系统字体。
     static func font(for spec: CardSpec, size: CGFloat, weight: CGFloat? = nil) -> UIFont {
         let w = weight ?? spec.fontWeight
-        return UIFont(name: spec.font.fontName, size: size)
-            ?? UIFont(name: spec.font.fallbackFontName, size: size)
-            ?? UIFont.systemFont(ofSize: size, weight: weightToUIFontWeight(w))
+        let systemWeight = weightToUIFontWeight(w)
+
+        switch spec.font {
+        case .sans:
+            return UIFont.systemFont(ofSize: size, weight: systemWeight)
+        case .serif, .kai:
+            return UIFont(name: spec.font.fontName, size: size)
+                ?? UIFont(name: spec.font.fallbackFontName, size: size)
+                ?? UIFont.systemFont(ofSize: size, weight: systemWeight)
+        }
     }
 
     /// 量一行文字的宽度（CoreText，和绘制用同一套度量）
@@ -495,10 +505,13 @@ enum Renderer {
 
     static func weightToUIFontWeight(_ weight: CGFloat) -> UIFont.Weight {
         switch weight {
-        case ..<600: return .medium
-        case ..<750: return .semibold
-        case ..<850: return .bold
-        default: return .heavy
+        case ..<350: return .light
+        case ..<450: return .regular
+        case ..<550: return .medium
+        case ..<650: return .semibold
+        case ..<750: return .bold
+        case ..<850: return .heavy
+        default: return .black
         }
     }
 }

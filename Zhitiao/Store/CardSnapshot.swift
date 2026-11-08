@@ -5,7 +5,7 @@ import UIKit
 struct CardSnapshot: Codable, Equatable {
     var lines: [String] = []
     var fontFamily: String = "sans"
-    var fontWeight: Double = 900
+    var fontWeight: Double = 600
     var fontSize: Double = 50
     var alignH: String = "center"
     var alignV: String = "middle"

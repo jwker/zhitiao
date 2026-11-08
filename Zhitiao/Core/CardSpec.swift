@@ -204,7 +204,7 @@ struct Palette: Equatable {
 struct CardSpec {
     var lines: [String] = []
     var font: FontFamily = .sans
-    var fontWeight: CGFloat = 900
+    var fontWeight: CGFloat = 600
     /// 字号由用户直接调，不再区分「上限」和「实际值」
     var fontSize: CGFloat = 50
     var align: (h: AlignH, v: AlignV) = (.center, .middle)
