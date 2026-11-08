@@ -143,8 +143,9 @@ xcrun simctl launch booted com.zhitiao.app --demo --generate
 # 直接切到某一类选项，例如插画
 xcrun simctl launch booted com.zhitiao.app --demo --generate --tab=illustration
 
-# 打开设置页
+# 打开设置页 / 自动点一次导出
 xcrun simctl launch booted com.zhitiao.app --settings
+xcrun simctl launch booted com.zhitiao.app --demo --export
 
 # 清空全部数据（列表、配置）
 xcrun simctl launch booted com.zhitiao.app --reset

@@ -3,8 +3,8 @@ import SwiftUI
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
     @State private var showSettings = ProcessInfo.processInfo.arguments.contains("--settings")
-    @State private var shareImage: UIImage?
-    @State private var showShare = false
+    /// 用 item 触发弹出：保证 sheet 拿到图，而不是"先弹空页、再传值"
+    @State private var sharePayload: SharePayload?
 
     var body: some View {
         ZStack {
@@ -24,17 +24,20 @@ struct ContentView: View {
         .sheet(isPresented: $showSettings) {
             SettingsSheet()
         }
-        .sheet(isPresented: $showShare) {
-            if let shareImage {
-                ShareSheet(items: [shareImage])
-            }
+        .sheet(item: $sharePayload) { payload in
+            ShareSheet(items: [payload.image])
+        }
+        .task {
+            // 调试用：--export 启动后自动点一次导出
+            guard ProcessInfo.processInfo.arguments.contains("--export") else { return }
+            try? await Task.sleep(nanoseconds: 1_500_000_000)
+            export()
         }
     }
 
     private func export() {
         guard let image = model.exportImage() else { return }
-        shareImage = image
-        showShare = true
+        sharePayload = SharePayload(image: image)
     }
 
     private var topBar: some View {
@@ -111,4 +114,10 @@ struct ContentView: View {
             Rectangle().fill(Theme.line).frame(height: 1)
         }
     }
+}
+
+/// 分享用的载荷：实现 Identifiable，`.sheet(item:)` 才会在值就绪时弹出
+private struct SharePayload: Identifiable {
+    let id = UUID()
+    let image: UIImage
 }
