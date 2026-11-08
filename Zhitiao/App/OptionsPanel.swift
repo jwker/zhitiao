@@ -81,10 +81,14 @@ struct OptionsPanel: View {
                 Spacer(minLength: 0)
             }
 
-            Text("最多选 \(EmojiCatalog.maxSelection) 个，会排在正文第一行的上方，字号和对齐跟随正文。")
-                .font(.system(size: 13))
-                .foregroundStyle(Theme.muted)
-                .fixedSize(horizontal: false, vertical: true)
+            Text(
+                spec.emoji.count >= EmojiCatalog.maxSelection
+                    ? "已经选满 \(EmojiCatalog.maxSelection) 个，点上面的已选项可以取消。重复点同一个可以叠加。"
+                    : "最多选 \(EmojiCatalog.maxSelection) 个，可以重复选同一个。会排在正文第一行的上方，字号比正文略大，对齐跟随正文。"
+            )
+            .font(.system(size: 13))
+            .foregroundStyle(Theme.muted)
+            .fixedSize(horizontal: false, vertical: true)
 
             // 分组横滑
             ForEach(EmojiCatalog.groups) { group in
@@ -97,7 +101,7 @@ struct OptionsPanel: View {
                         LazyHStack(spacing: 2) {
                             ForEach(group.emoji, id: \.self) { item in
                                 Button {
-                                    model.toggleEmoji(item)
+                                    model.appendEmoji(item)
                                 } label: {
                                     Text(item)
                                         .font(.system(size: 26))

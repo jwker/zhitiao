@@ -120,7 +120,9 @@ enum Renderer {
         // 顶部 emoji 行：占一行高度，下面再多留一点空隙，让它像一个符号而不是正文
         let emojiText = spec.emoji.joined()
         let hasEmoji = !emojiText.isEmpty
-        let emojiHeight = hasEmoji ? size * 1.15 : 0
+        // emoji 比正文大一号，视觉上才压得住
+        let emojiSize = size * 1.18
+        let emojiHeight = hasEmoji ? emojiSize * 1.15 : 0
         let emojiGap = hasEmoji ? size * 0.72 : 0
 
         func blockHeight(_ gap: CGFloat) -> CGFloat {
@@ -147,7 +149,7 @@ enum Renderer {
         var cursor = top
 
         if hasEmoji {
-            let width = measureEmoji(emojiText, size: size)
+            let width = measureEmoji(emojiText, size: emojiSize)
             var x: CGFloat = 0
             switch spec.align.h {
             case .left: x = 0
@@ -160,7 +162,7 @@ enum Renderer {
                 y: cursor + padding.top,
                 width: width,
                 height: emojiHeight,
-                size: size
+                size: emojiSize
             )
             cursor += emojiHeight + emojiGap
         }

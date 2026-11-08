@@ -112,7 +112,7 @@ final class AppModel: ObservableObject {
             let value = String(emojiArg.dropFirst("--emoji=".count))
             if let index = documents.firstIndex(where: { $0.id == currentID }) {
                 var spec = documents[index].makeSpec()
-                spec.emoji = value.map(String.init)
+                spec.emoji = Array(value.map(String.init).prefix(EmojiCatalog.maxSelection))
                 documents[index].snapshot = CardSnapshot(spec: spec)
                 render()
             }
@@ -229,14 +229,11 @@ final class AppModel: ObservableObject {
         persist()
     }
 
-    /// 点一下加/减，超过上限就忽略
-    func toggleEmoji(_ emoji: String) {
+    /// 点一下就往后面加一个（允许重复），满了就忽略
+    func appendEmoji(_ emoji: String) {
         update { spec in
-            if let index = spec.emoji.firstIndex(of: emoji) {
-                spec.emoji.remove(at: index)
-            } else if spec.emoji.count < EmojiCatalog.maxSelection {
-                spec.emoji.append(emoji)
-            }
+            guard spec.emoji.count < EmojiCatalog.maxSelection else { return }
+            spec.emoji.append(emoji)
         }
     }
 

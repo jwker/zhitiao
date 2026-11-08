@@ -36,7 +36,7 @@ struct CardTabBar: View {
     @Binding var selection: CardTab
 
     var body: some View {
-        HStack(spacing: 24) {
+        HStack(spacing: 0) {
             ForEach(CardTab.visible) { tab in
                 Button {
                     selection = tab
@@ -50,10 +50,11 @@ struct CardTabBar: View {
                             .fill(selection == tab ? Theme.accent : .clear)
                             .frame(height: 2)
                     }
+                    .frame(maxWidth: .infinity)
+                    .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
             }
-            Spacer(minLength: 0)
         }
         .padding(.horizontal, 16)
         .padding(.top, 10)
