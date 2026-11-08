@@ -184,7 +184,8 @@ final class AppModel: ObservableObject {
         var spec = documents[index].makeSpec()
         mutate(&spec)
         documents[index].snapshot = CardSnapshot(spec: spec)
-        render()
+        // 拖动滑杆会连发很多事件，用 60ms 节流，避免堆积重绘
+        scheduleRender()
         persist()
     }
 
@@ -264,6 +265,12 @@ final class AppModel: ObservableObject {
 
     // MARK: - 渲染
 
+    /// 预览的分辨率要跟屏幕像素对上，否则会被放大显示、看起来发虚。
+    /// 卡片最宽显示 358pt，3 倍屏需要约 1074px，所以按 1.2 倍渲染（1296px）留余量。
+    private static let previewScale: CGFloat = 1.2
+    /// 迷你预览 63pt 宽，3 倍屏 189px，0.24 倍渲染（259px）够用
+    private static let peekScale: CGFloat = 0.24
+
     /// 选项模式要完整预览，编辑模式只要顶部那条迷你预览
     func render() {
         guard let doc = current else {
@@ -272,22 +279,28 @@ final class AppModel: ObservableObject {
             return
         }
         let spec = doc.makeSpec()
-        preview = Renderer.render(spec: spec, lines: spec.lines, scale: 0.42)
-        peek = Renderer.render(spec: spec, lines: spec.lines, scale: 0.09)
+        preview = Renderer.render(spec: spec, lines: spec.lines, scale: Self.previewScale)
+        peek = Renderer.render(spec: spec, lines: spec.lines, scale: Self.peekScale)
     }
 
-    /// 打字时不必每帧都重绘大图，只更新迷你预览
+    /// 迷你预览立刻更新（很便宜），大图节流 60ms 后重绘
     private func scheduleRender() {
         renderTask?.cancel()
-        let snapshotDocument = current
+
+        guard let doc = current else { return }
+        let spec = doc.makeSpec()
+        peek = Renderer.render(spec: spec, lines: spec.lines, scale: Self.peekScale)
+
+        // 编辑模式下不需要大图，等点「完成」时 render() 会重绘
+        guard !isEditing else { return }
+
+        let snapshot = spec
         renderTask = Task { [weak self] in
-            try? await Task.sleep(nanoseconds: 40_000_000)
+            try? await Task.sleep(nanoseconds: 60_000_000)
             guard !Task.isCancelled else { return }
             await MainActor.run {
-                guard let self, let doc = snapshotDocument else { return }
-                let spec = doc.makeSpec()
-                self.peek = Renderer.render(spec: spec, lines: spec.lines, scale: 0.09)
-                self.preview = Renderer.render(spec: spec, lines: spec.lines, scale: 0.42)
+                guard let self else { return }
+                self.preview = Renderer.render(spec: snapshot, lines: snapshot.lines, scale: Self.previewScale)
             }
         }
     }
@@ -296,7 +309,7 @@ final class AppModel: ObservableObject {
     func exportPreview() -> UIImage? {
         guard let doc = current else { return nil }
         let spec = doc.makeSpec()
-        return Renderer.render(spec: spec, lines: spec.lines, scale: 0.9)
+        return preview ?? Renderer.render(spec: spec, lines: spec.lines, scale: Self.previewScale)
     }
 
     /// 导出：两倍图
