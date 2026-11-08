@@ -14,6 +14,7 @@ final class DocumentStore {
     private enum Key {
         static let documents = "zhitiao.documents.v2"
         static let config = "zhitiao.aiConfig"
+        static let imageConfig = "zhitiao.imageConfig"
         /// 旧版本的单个正文，用来做一次性迁移
         static let legacyText = "zhitiao.text"
         static let legacySpec = "zhitiao.spec"
@@ -78,6 +79,28 @@ final class DocumentStore {
                 defaults.set(data, forKey: Key.config)
             }
         }
+    }
+
+    /// 插画模型配置（可选）
+    var imageConfig: IllustrationGenerator.Config {
+        get {
+            guard let data = defaults.data(forKey: Key.imageConfig) else { return .default }
+            return (try? JSONDecoder().decode(IllustrationGenerator.Config.self, from: data)) ?? .default
+        }
+        set {
+            if let data = try? JSONEncoder().encode(newValue) {
+                defaults.set(data, forKey: Key.imageConfig)
+            }
+        }
+    }
+
+    /// 清掉旧版本残留的两个键（调试用）
+    static func resetLegacy() {
+        UserDefaults.standard.removeObject(forKey: "zhitiao.text")
+        UserDefaults.standard.removeObject(forKey: "zhitiao.spec")
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: "zhitiao.text")
+        NSUbiquitousKeyValueStore.default.removeObject(forKey: "zhitiao.spec")
+        NSUbiquitousKeyValueStore.default.synchronize()
     }
 
     /// iCloud 是否可用（已登录且有权限）

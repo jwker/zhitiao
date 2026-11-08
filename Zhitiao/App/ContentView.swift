@@ -2,7 +2,7 @@ import SwiftUI
 
 struct ContentView: View {
     @EnvironmentObject private var model: AppModel
-    @State private var showSettings = false
+    @State private var showSettings = ProcessInfo.processInfo.arguments.contains("--settings")
     @State private var shareImage: UIImage?
     @State private var showShare = false
     @State private var cardScreen: CardScreen?
@@ -64,6 +64,16 @@ struct ContentView: View {
             switch model.screen {
             case .list:
                 Button {
+                    showSettings = true
+                } label: {
+                    Image(systemName: "gearshape")
+                        .font(.system(size: 17, weight: .regular))
+                        .foregroundStyle(Theme.ink)
+                }
+                .frame(width: 32, height: 32)
+                .accessibilityLabel("设置")
+
+                Button {
                     model.createDocument()
                 } label: {
                     Image(systemName: "plus")
@@ -71,6 +81,7 @@ struct ContentView: View {
                         .foregroundStyle(Theme.ink)
                 }
                 .frame(width: 32, height: 32)
+                .accessibilityLabel("新建纸条")
 
             case .card:
                 if model.isEditing {

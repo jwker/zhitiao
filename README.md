@@ -45,9 +45,32 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 
 **卡片页 · 编辑模式**：点卡片进入。上方缩成一条 63×84 的迷你预览（旁边写当前样式：纯色 · 居中 · 荧光笔），编辑区拿到全宽和剩余高度（17px / 1.9 行高，一屏 9–10 行）。每敲一个字迷你预览即时重排。点「看大图」进全屏预览，点任意处返回。右上角「完成」收起键盘。
 
-## 模型
+## 配置模型
 
-OpenAI 兼容格式，默认指向阿里云百炼的 `/compatible-mode/v1`。模型返回：
+**原生 App 不读 `.env`。** H5 版靠 Vite 在构建期把 `MODEL_BASE_URL` / `MODEL_API_KEY` / `MODEL_NAME` 注入进去，iOS 没有这一层，改成在 App 里填、存在设备上。
+
+入口：**首页右上角齿轮** → 设置。
+
+| 段落 | 字段 | 说明 |
+| --- | --- | --- |
+| 调试模式 | 开关 | 打开时不发请求，强调词和插画由本地规则给。默认开，所以不配 Key 也能跑通全流程 |
+| 文本模型 | 请求地址 / 模型名称 / API Key | OpenAI 兼容格式。默认 `https://dashscope.aliyuncs.com/compatible-mode/v1` + `qwen-plus` |
+| 插画模型（可留空） | 请求地址 / 模型名称 / API Key | 默认 `https://dashscope.aliyuncs.com/api/v1` + `wan2.7-image`。填了 Key 才会真的画插画，留空就用内置 18 个简笔画 |
+| 测试 | 测试连接 | 关掉调试模式后可用，返回强调词和插画主体的数量，或者错误信息 |
+
+和 `.env` 对照：
+
+| H5 的 `.env.local` | iOS 设置页 |
+| --- | --- |
+| `MODEL_BASE_URL` | 文本模型 → 请求地址 |
+| `MODEL_API_KEY` | 文本模型 → API Key |
+| `MODEL_NAME` | 文本模型 → 模型名称 |
+| `MODEL_MOCK` | 调试模式开关（`true` = 打开） |
+| `MODEL_IMAGE_*` | 插画模型三个字段 |
+
+**区别**：`.env` 是构建期常量，改完要重启 dev server；App 里是运行期可改，存 `UserDefaults`，不进代码库、不进 iCloud，也不随安装包分发。
+
+模型只做两件事：挑强调词、给插画主体。返回：
 
 ```json
 {
@@ -57,8 +80,6 @@ OpenAI 兼容格式，默认指向阿里云百炼的 `/compatible-mode/v1`。模
 ```
 
 校验规则：强调词必须在原文里连续出现（否则丢掉），插画主体最多 5 个。模型挂了或没配 Key，自动退回本地规则，卡片照样出。
-
-**调试模式默认开着**，所以不配 Key 也能跑通全流程。
 
 ## 数据
 
@@ -113,6 +134,14 @@ xcrun simctl launch booted com.zhitiao.app --demo --generate
 # 直接切到某一类选项，例如插画
 xcrun simctl launch booted com.zhitiao.app --demo --generate --tab=illustration
 
+# 打开设置页
+xcrun simctl launch booted com.zhitiao.app --settings
+
+# 清空全部数据（列表、配置）
+xcrun simctl launch booted com.zhitiao.app --reset
+
 # 检查 18 个内置简笔画的风格是否一致
 xcrun simctl launch booted com.zhitiao.app --dump-icons
 ```
+
+`--demo` 系列的写入不会落盘，用来截图和回归；真实数据不会被污染。

@@ -25,9 +25,12 @@ final class AppModel: ObservableObject {
     @Published var isBusy = false
     @Published var status = ""
     @Published var config: AIClient.Config
+    @Published var imageConfig: IllustrationGenerator.Config
 
     private let store = DocumentStore.shared
     private var renderTask: Task<Void, Never>?
+    /// 调试参数进来的会话不写存储，避免污染真实数据
+    private let isDebugSession: Bool
 
     var current: Document? {
         documents.first { $0.id == currentID }
@@ -38,11 +41,22 @@ final class AppModel: ObservableObject {
     }
 
     init() {
+        let arguments = ProcessInfo.processInfo.arguments
+        isDebugSession = arguments.contains("--demo")
+
+        if arguments.contains("--reset") {
+            store.documents = []
+            store.config = .default
+            store.imageConfig = .default
+            DocumentStore.resetLegacy()
+        }
+
         documents = store.documents
         config = store.config
+        imageConfig = store.imageConfig
 
         // 调试用：--demo 直接打开示例纸条的卡片页
-        if ProcessInfo.processInfo.arguments.contains("--demo") {
+        if arguments.contains("--demo") {
             let doc = Document(text: AppModel.sample)
             documents.insert(doc, at: 0)
             currentID = doc.id
@@ -53,11 +67,11 @@ final class AppModel: ObservableObject {
             persist()
 
             // 调试用：--generate 立刻跑一次模型分析
-            if ProcessInfo.processInfo.arguments.contains("--generate") {
+            if arguments.contains("--generate") {
                 Task { await generate() }
             }
         }
-        if ProcessInfo.processInfo.arguments.contains("--dump-icons") {
+        if arguments.contains("--dump-icons") {
             if let data = DoodleSheet.image().pngData() {
                 let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
                     .appendingPathComponent("zhitiao-icons.png")
@@ -181,8 +195,28 @@ final class AppModel: ObservableObject {
             status = "模型挑出了 \(spec.emphasisWords.count) 个强调词、\(subjects.count) 个插画主体"
             render()
             persist()
+
+            // 配了图像模型就把内置素材换成真图
+            if !imageConfig.apiKey.isEmpty, !subjects.isEmpty {
+                await loadGeneratedIllustrations(subjects)
+            }
         } catch {
             status = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
+        }
+    }
+
+    /// 图像模型出图：逐张替换，失败的那张保留内置素材
+    private func loadGeneratedIllustrations(_ subjects: [String]) async {
+        for index in subjects.indices {
+            guard index < illustrations.count else { continue }
+            let subject = subjects[index]
+            guard let image = await IllustrationGenerator.generate(subject: subject, config: imageConfig) else {
+                continue
+            }
+            illustrations[index].image = image
+            if current?.makeSpec().illustration?.id == illustrations[index].id {
+                update { $0.illustration = self.illustrations[index] }
+            }
         }
     }
 
@@ -238,8 +272,10 @@ final class AppModel: ObservableObject {
     }
 
     func persist() {
+        guard !isDebugSession else { return }
         store.documents = documents
         store.config = config
+        store.imageConfig = imageConfig
         if let index = documents.firstIndex(where: { $0.id == currentID }) {
             if documents[index].isEmpty {
                 // 空纸条不留着
