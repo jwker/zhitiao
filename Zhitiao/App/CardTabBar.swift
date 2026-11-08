@@ -5,6 +5,7 @@ import SwiftUI
 /// 元素 / 强调 / 插画 依赖 AI，暂时下线。枚举值和对应实现都留在下面（见 OptionsPanel），
 /// 恢复时把这几行注释打开、并把 CardTab.visible 里对应项加回去即可。
 enum CardTab: String, CaseIterable, Identifiable {
+    case emoji
     case background, align, font
     // case element
     // case emphasis
@@ -14,6 +15,7 @@ enum CardTab: String, CaseIterable, Identifiable {
 
     var name: String {
         switch self {
+        case .emoji: return "Emoji"
         case .background: return "背景"
         case .align: return "对齐"
         // case .element: return "元素"
@@ -25,8 +27,8 @@ enum CardTab: String, CaseIterable, Identifiable {
 
     /// tab 条上实际显示的项。恢复 AI 相关 tab 时，把注释掉的项加回来。
     static var visible: [CardTab] {
-        [.background, .align, .font]
-        // [.background, .align, .element, .emphasis, .illustration, .font]
+        [.emoji, .background, .align, .font]
+        // [.emoji, .background, .align, .element, .emphasis, .illustration, .font]
     }
 }
 

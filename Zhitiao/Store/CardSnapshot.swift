@@ -16,6 +16,7 @@ struct CardSnapshot: Codable, Equatable {
     var elementID: String = "none"
     var emphasisStyle: String = "marker"
     var emphasisWords: [String] = []
+    var emoji: [String] = []
     var illustrationID: String?
     var illustrationSubject: String?
     /// 内置简笔画的 id：重新打开时用它还原插画
@@ -45,6 +46,7 @@ struct CardSnapshot: Codable, Equatable {
         elementID = try container.decode(String.self, forKey: .elementID)
         emphasisStyle = try container.decode(String.self, forKey: .emphasisStyle)
         emphasisWords = try container.decode([String].self, forKey: .emphasisWords)
+        emoji = try container.decodeIfPresent([String].self, forKey: .emoji) ?? []
         illustrationID = try container.decodeIfPresent(String.self, forKey: .illustrationID)
         illustrationSubject = try container.decodeIfPresent(String.self, forKey: .illustrationSubject)
         illustrationFallback = try container.decodeIfPresent(String.self, forKey: .illustrationFallback)
@@ -64,6 +66,7 @@ struct CardSnapshot: Codable, Equatable {
         elementID = spec.element.id
         emphasisStyle = spec.emphasisStyle.rawValue
         emphasisWords = spec.emphasisWords
+        emoji = spec.emoji
         illustrationID = spec.illustration?.id
         illustrationSubject = spec.illustration?.subject
         illustrationFallback = spec.illustration?.fallbackId
@@ -88,6 +91,7 @@ struct CardSnapshot: Codable, Equatable {
         spec.element = ElementItem.find(elementID)
         spec.emphasisStyle = EmphasisStyle(rawValue: emphasisStyle) ?? .marker
         spec.emphasisWords = emphasisWords
+        spec.emoji = emoji
         spec.illustration = illustration
         return spec
     }

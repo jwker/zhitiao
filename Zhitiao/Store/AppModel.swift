@@ -107,6 +107,46 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // 调试用：--emoji=🌿🌙 直接给卡片加 emoji
+        if let emojiArg = arguments.first(where: { $0.hasPrefix("--emoji=") }) {
+            let value = String(emojiArg.dropFirst("--emoji=".count))
+            if let index = documents.firstIndex(where: { $0.id == currentID }) {
+                var spec = documents[index].makeSpec()
+                spec.emoji = value.map(String.init)
+                documents[index].snapshot = CardSnapshot(spec: spec)
+                render()
+            }
+        }
+
+        // 调试用：--align=left / --valign=top 指定对齐
+        if let alignArg = arguments.first(where: { $0.hasPrefix("--align=") }) {
+            let value = alignArg.replacingOccurrences(of: "--align=", with: "")
+            if let h = AlignH(rawValue: value), let index = documents.firstIndex(where: { $0.id == currentID }) {
+                var spec = documents[index].makeSpec()
+                spec.align.h = h
+                documents[index].snapshot = CardSnapshot(spec: spec)
+                render()
+            }
+        }
+        if let vAlignArg = arguments.first(where: { $0.hasPrefix("--valign=") }) {
+            let value = vAlignArg.replacingOccurrences(of: "--valign=", with: "")
+            if let v = AlignV(rawValue: value), let index = documents.firstIndex(where: { $0.id == currentID }) {
+                var spec = documents[index].makeSpec()
+                spec.align.v = v
+                documents[index].snapshot = CardSnapshot(spec: spec)
+                render()
+            }
+        }
+
+        // 调试用：--dump-emoji 把 emoji 目录的分组统计写到 Documents
+        if arguments.contains("--dump-emoji") {
+            let lines = EmojiCatalog.groups.map { "\($0.name)\t\($0.emoji.count)" }
+            let text = (["合计\t\(EmojiCatalog.totalCount)"] + lines).joined(separator: "\n")
+            let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .appendingPathComponent("emoji-groups.txt")
+            try? text.write(to: url, atomically: true, encoding: .utf8)
+        }
+
         if arguments.contains("--dump-icons") {
             if let data = DoodleSheet.image().pngData() {
                 let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -187,6 +227,28 @@ final class AppModel: ObservableObject {
         // 拖动滑杆会连发很多事件，用 60ms 节流，避免堆积重绘
         scheduleRender()
         persist()
+    }
+
+    /// 点一下加/减，超过上限就忽略
+    func toggleEmoji(_ emoji: String) {
+        update { spec in
+            if let index = spec.emoji.firstIndex(of: emoji) {
+                spec.emoji.remove(at: index)
+            } else if spec.emoji.count < EmojiCatalog.maxSelection {
+                spec.emoji.append(emoji)
+            }
+        }
+    }
+
+    func removeEmoji(at index: Int) {
+        update { spec in
+            guard index < spec.emoji.count else { return }
+            spec.emoji.remove(at: index)
+        }
+    }
+
+    func clearEmoji() {
+        update { $0.emoji = [] }
     }
 
     func selectIllustration(_ id: String?) {

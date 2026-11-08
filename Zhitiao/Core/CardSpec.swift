@@ -211,6 +211,8 @@ struct CardSpec {
     var palette: Palette = .make(bgHex: "#FFFFFF", accentHex: "#E23D28")
     var background: BackgroundType = .solid
     var element: ElementItem = .all[0]
+    /// 卡片顶部单独一行的 emoji（0–5 个，空数组表示不放）
+    var emoji: [String] = []
     var emphasisStyle: EmphasisStyle = .marker
     var emphasisWords: [String] = []
     var illustration: Illustration?

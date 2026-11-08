@@ -13,6 +13,7 @@ struct OptionsPanel: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 20) {
                 switch tab {
+                case .emoji: emojiTab
                 case .background: backgroundTab
                 case .align: alignTab
                 // 依赖 AI，暂时下线
@@ -26,6 +27,93 @@ struct OptionsPanel: View {
             .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.surface)
+    }
+
+    // MARK: - Emoji
+
+    private var emojiTab: some View {
+        VStack(alignment: .leading, spacing: 14) {
+            GroupLabel(
+                title: "Emoji",
+                value: spec.emoji.isEmpty ? "不放" : "\(spec.emoji.count) / \(EmojiCatalog.maxSelection)"
+            )
+
+            // 已选：点一下取消
+            HStack(spacing: 8) {
+                Button {
+                    model.clearEmoji()
+                } label: {
+                    Text("不放")
+                        .font(.system(size: 14, weight: .medium))
+                        .foregroundStyle(spec.emoji.isEmpty ? Theme.bg : Theme.ink)
+                        .padding(.horizontal, 12)
+                        .frame(height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(spec.emoji.isEmpty ? Theme.ink : Theme.bg)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(spec.emoji.isEmpty ? Color.clear : Theme.line, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+
+                ForEach(Array(spec.emoji.enumerated()), id: \.offset) { index, item in
+                    Button {
+                        model.removeEmoji(at: index)
+                    } label: {
+                        Text(item)
+                            .font(.system(size: 26))
+                            .frame(width: 44, height: 40)
+                            .background(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .fill(Theme.bg)
+                            )
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(Theme.line, lineWidth: 1)
+                            )
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                Spacer(minLength: 0)
+            }
+
+            Text("最多选 \(EmojiCatalog.maxSelection) 个，会排在正文第一行的上方，字号和对齐跟随正文。")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.muted)
+                .fixedSize(horizontal: false, vertical: true)
+
+            // 分组横滑
+            ForEach(EmojiCatalog.groups) { group in
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("\(group.name)  \(group.emoji.count)")
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(Theme.muted)
+
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        LazyHStack(spacing: 2) {
+                            ForEach(group.emoji, id: \.self) { item in
+                                Button {
+                                    model.toggleEmoji(item)
+                                } label: {
+                                    Text(item)
+                                        .font(.system(size: 26))
+                                        .frame(width: 40, height: 40)
+                                        .background(
+                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                                .fill(spec.emoji.contains(item) ? Theme.wash : Color.clear)
+                                        )
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                    }
+                }
+            }
+        }
     }
 
     // MARK: - 背景（含配色）

@@ -22,6 +22,8 @@ enum Renderer {
 
     struct Layout {
         var size: CGFloat
+        /// 顶部单独一行 emoji（可能为空）
+        var emojiLine: PositionedLine?
         /// 卡片最终高度：内容多就长，最少 1440
         var height: CGFloat
         var lineHeight: CGFloat
@@ -55,6 +57,16 @@ enum Renderer {
         )
         let width = CTLineGetTypographicBounds(line, nil, nil, nil)
         return ceil(width)
+    }
+
+    /// emoji 用 Apple Color Emoji 量宽（每个 emoji 宽度正好等于字号）
+    static func measureEmoji(_ text: String, size: CGFloat) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        let font = CTFontCreateWithName("AppleColorEmoji" as CFString, size, nil)
+        let line = CTLineCreateWithAttributedString(
+            NSAttributedString(string: text, attributes: [.font: font])
+        )
+        return ceil(CTLineGetTypographicBounds(line, nil, nil, nil))
     }
 
     /// 一行放不下就按字折行，标点不落行首
@@ -105,8 +117,15 @@ enum Renderer {
         var gap = size * gapRatio
         let minContentHeight = minHeight - padding.top - padding.bottom
 
+        // 顶部 emoji 行：占一行高度，下面再多留一点空隙，让它像一个符号而不是正文
+        let emojiText = spec.emoji.joined()
+        let hasEmoji = !emojiText.isEmpty
+        let emojiHeight = hasEmoji ? size * 1.15 : 0
+        let emojiGap = hasEmoji ? size * 0.72 : 0
+
         func blockHeight(_ gap: CGFloat) -> CGFloat {
-            CGFloat(wrapped.count) * lineHeight + CGFloat(max(0, wrapped.count - 1)) * gap
+            let textBlock = CGFloat(wrapped.count) * lineHeight + CGFloat(max(0, wrapped.count - 1)) * gap
+            return emojiHeight + emojiGap + textBlock
         }
 
         // 内容少时把行距撑开，让短句在 3:4 的卡上也站得住
@@ -124,8 +143,29 @@ enum Renderer {
         case .bottom: top = max(0, contentHeight - blockHeight(gap))
         }
 
-        var positioned: [PositionedLine] = []
+        var emojiLine: PositionedLine?
         var cursor = top
+
+        if hasEmoji {
+            let width = measureEmoji(emojiText, size: size)
+            var x: CGFloat = 0
+            switch spec.align.h {
+            case .left: x = 0
+            case .center: x = (contentWidth - width) / 2
+            case .right: x = contentWidth - width
+            }
+            emojiLine = PositionedLine(
+                text: emojiText,
+                x: x + padding.left + symbolSpace,
+                y: cursor + padding.top,
+                width: width,
+                height: emojiHeight,
+                size: size
+            )
+            cursor += emojiHeight + emojiGap
+        }
+
+        var positioned: [PositionedLine] = []
         for text in wrapped {
             let width = measure(text, spec: spec, size: size)
             var x: CGFloat = 0
@@ -149,6 +189,7 @@ enum Renderer {
 
         return Layout(
             size: size,
+            emojiLine: emojiLine,
             height: height,
             lineHeight: lineHeight,
             gap: gap,
@@ -188,6 +229,11 @@ enum Renderer {
         // 文字
         for line in layout.lines {
             drawLine(line, spec: spec, in: ctx)
+        }
+
+        // 顶部 emoji 行
+        if let emojiLine = layout.emojiLine {
+            drawEmojiLine(emojiLine, in: ctx)
         }
 
         // 插画：依赖 AI，暂时下线
@@ -347,6 +393,25 @@ enum Renderer {
 
     /// 插画画在角落。空间不够就缩小，再不够就用最小尺寸放到重叠最少的角上——
     /// 宁可小一点，也不能整张卡没有插画。
+    /// 画顶部那行 emoji（Apple Color Emoji 是彩色位图字体）
+    private static func drawEmojiLine(_ line: PositionedLine, in ctx: CGContext) {
+        guard !line.text.isEmpty else { return }
+        let font = CTFontCreateWithName("AppleColorEmoji" as CFString, line.size, nil)
+        let attributed = NSAttributedString(string: line.text, attributes: [.font: font])
+        let ctLine = CTLineCreateWithAttributedString(attributed)
+
+        // 基线放在这个行盒的底部附近，emoji 的升部约等于字号
+        let baseline = line.y + line.size
+
+        ctx.saveGState()
+        ctx.textMatrix = .identity
+        ctx.translateBy(x: line.x, y: baseline)
+        ctx.scaleBy(x: 1, y: -1)
+        ctx.textPosition = .zero
+        CTLineDraw(ctLine, ctx)
+        ctx.restoreGState()
+    }
+
     private static func drawIllustration(
         _ illustration: Illustration,
         spec: CardSpec,

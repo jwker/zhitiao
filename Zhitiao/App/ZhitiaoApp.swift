@@ -21,6 +21,8 @@ enum Theme {
     static let muted = Color(hex: "#6E6A63")
     static let accent = Color(hex: "#C2410C")
     static let line = Color(hex: "#16130F").opacity(0.12)
+    /// 选中态的浅底
+    static let wash = Color(hex: "#16130F").opacity(0.06)
 }
 
 extension Color {
