@@ -144,4 +144,10 @@ xcrun simctl launch booted com.zhitiao.app --reset
 xcrun simctl launch booted com.zhitiao.app --dump-icons
 ```
 
-`--demo` 系列的写入不会落盘，用来截图和回归；真实数据不会被污染。
+调试参数默认不写存储，用来截图和回归，不会污染真实数据。想验证持久化时加 `--persist`：
+
+```bash
+# 模拟「点 ＋ → 输入 → 完成」，并真的存下来
+xcrun simctl launch booted com.zhitiao.app --new "--type=第一行\n第二行" --end --persist
+xcrun simctl launch booted com.zhitiao.app   # 再正常启动，列表里应该有这一条
+```

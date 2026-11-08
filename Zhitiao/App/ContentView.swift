@@ -5,7 +5,6 @@ struct ContentView: View {
     @State private var showSettings = ProcessInfo.processInfo.arguments.contains("--settings")
     @State private var shareImage: UIImage?
     @State private var showShare = false
-    @State private var cardScreen: CardScreen?
 
     var body: some View {
         ZStack {
@@ -18,7 +17,7 @@ struct ContentView: View {
                 case .list:
                     ListView()
                 case .card:
-                    CardScreenHost(onExport: export)
+                    CardScreen()
                 }
             }
         }
@@ -111,14 +110,5 @@ struct ContentView: View {
         .overlay(alignment: .bottom) {
             Rectangle().fill(Theme.line).frame(height: 1)
         }
-    }
-}
-
-/// 把 CardScreen 的导出动作交给外层顶栏
-private struct CardScreenHost: View {
-    let onExport: () -> Void
-
-    var body: some View {
-        CardScreen()
     }
 }

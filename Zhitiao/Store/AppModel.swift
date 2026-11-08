@@ -42,7 +42,9 @@ final class AppModel: ObservableObject {
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
-        isDebugSession = arguments.contains("--demo")
+        let hasDebugArg = ["--demo", "--new", "--settings", "--dump-icons"].contains { arguments.contains($0) }
+        // --persist 让调试会话也写存储，用来验证「返回列表后还在不在」
+        isDebugSession = hasDebugArg && !arguments.contains("--persist")
 
         if arguments.contains("--reset") {
             store.documents = []
@@ -71,6 +73,24 @@ final class AppModel: ObservableObject {
                 Task { await generate() }
             }
         }
+        // 调试用：--new 模拟点「新建」，--type=… 模拟输入，--end 模拟点「完成」
+        if arguments.contains("--new") {
+            createDocument()
+            let typed = arguments.first(where: { $0.hasPrefix("--type=") })
+                .map { String($0.dropFirst("--type=".count)) }
+                .map { $0.replacingOccurrences(of: #"\n"#, with: "\n") }
+            if let typed {
+                Task {
+                    try? await Task.sleep(nanoseconds: 700_000_000)
+                    updateText(typed)
+                    if arguments.contains("--end") {
+                        try? await Task.sleep(nanoseconds: 700_000_000)
+                        endEditing()
+                    }
+                }
+            }
+        }
+
         if arguments.contains("--dump-icons") {
             if let data = DoodleSheet.image().pngData() {
                 let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -108,6 +128,7 @@ final class AppModel: ObservableObject {
     }
 
     func backToList() {
+        discardCurrentIfEmpty()
         commitOrder()
         isEditing = false
         screen = .list
@@ -121,6 +142,11 @@ final class AppModel: ObservableObject {
 
     func endEditing() {
         isEditing = false
+        if current?.isEmpty == true {
+            discardCurrentIfEmpty()
+            screen = .list
+            return
+        }
         commitOrder()
         render()
         persist()
@@ -276,13 +302,15 @@ final class AppModel: ObservableObject {
         store.documents = documents
         store.config = config
         store.imageConfig = imageConfig
-        if let index = documents.firstIndex(where: { $0.id == currentID }) {
-            if documents[index].isEmpty {
-                // 空纸条不留着
-                documents.remove(at: index)
-                currentID = nil
-                store.documents = documents
-            }
+    }
+
+    /// 离开卡片页时把空纸条丢掉。不能在新建时就删——那时文字还没输进来。
+    private func discardCurrentIfEmpty() {
+        guard let index = documents.firstIndex(where: { $0.id == currentID }) else { return }
+        if documents[index].isEmpty {
+            documents.remove(at: index)
+            currentID = nil
+            persist()
         }
     }
 }

@@ -10,9 +10,6 @@ struct CardScreen: View {
 
     @State private var tab: CardTab = CardScreen.initialTab
     @FocusState private var editorFocused: Bool
-    @State private var shareImage: UIImage?
-    @State private var showShare = false
-    @State private var draft: String = ""
 
     /// 调试用：--tab=element 直接切到某一类选项
     static var initialTab: CardTab {
@@ -36,23 +33,13 @@ struct CardScreen: View {
         }
         .background(Theme.surface)
         .onAppear {
-            draft = model.current?.text ?? ""
             if model.isEditing { focusEditor() }
         }
         .onChange(of: model.isEditing) { _, editing in
-            draft = model.current?.text ?? ""
             if editing { focusEditor() }
-        }
-        .onChange(of: draft) { _, value in
-            model.updateText(value)
         }
         .fullScreenCover(isPresented: $model.showFullPreview) {
             FullPreview(image: model.exportPreview())
-        }
-        .sheet(isPresented: $showShare) {
-            if let shareImage {
-                ShareSheet(items: [shareImage])
-            }
         }
     }
 
@@ -159,6 +146,11 @@ struct CardScreen: View {
         }
     }
 
+    /// 当前纸条的正文：编辑框直接读写它，避免和本地 state 不同步
+    private var text: String {
+        model.current?.text ?? ""
+    }
+
     private var editor: some View {
         VStack(alignment: .leading, spacing: 8) {
             HStack {
@@ -166,12 +158,12 @@ struct CardScreen: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.muted)
                 Spacer()
-                Text("\(splitLines(draft, maxChars: 12).count) 行 · \(charCount(draft)) 字")
+                Text("\(splitLines(text, maxChars: 12).count) 行 · \(charCount(text)) 字")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
             }
 
-            TextEditor(text: $draft)
+            TextEditor(text: Binding(get: { model.current?.text ?? "" }, set: { model.updateText($0) }))
                 .focused($editorFocused)
                 .font(.system(size: 17))
                 .lineSpacing(15)
@@ -183,13 +175,5 @@ struct CardScreen: View {
         .padding(.horizontal, 16)
         .padding(.top, 12)
         .frame(maxHeight: .infinity)
-    }
-
-    // MARK: - 导出
-
-    func export() {
-        guard let image = model.exportImage() else { return }
-        shareImage = image
-        showShare = true
     }
 }
