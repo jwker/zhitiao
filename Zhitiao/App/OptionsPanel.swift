@@ -217,48 +217,35 @@ struct OptionsPanel: View {
 
     // MARK: - 字体（含字号）
 
+    /// 字号：四档快捷 + 滑杆微调（字体族暂时固定黑体，不做切换）
     private var fontTab: some View {
-        VStack(alignment: .leading, spacing: 20) {
-            VStack(alignment: .leading, spacing: 10) {
-                GroupLabel(title: "字体")
-                WrapRow(spacing: 8) {
-                    ForEach(FontFamily.allCases) { item in
-                        OptionButton(title: item.name, active: spec.font == item) {
-                            model.update { $0.font = item }
-                        }
+        VStack(alignment: .leading, spacing: 10) {
+            GroupLabel(title: "字号", value: SizePreset.name(for: spec.fontSize))
+
+            WrapRow(spacing: 8) {
+                ForEach(SizePreset.all) { preset in
+                    OptionButton(
+                        title: preset.name,
+                        active: SizePreset.name(for: spec.fontSize) == preset.name
+                    ) {
+                        model.update { $0.fontSize = preset.size }
                     }
                 }
             }
 
-            VStack(alignment: .leading, spacing: 10) {
-                GroupLabel(title: "字号", value: SizePreset.name(for: spec.fontSize))
+            Slider(
+                value: Binding(
+                    get: { spec.fontSize },
+                    set: { value in model.update { $0.fontSize = value } }
+                ),
+                in: SizePreset.range,
+                step: 2
+            )
+            .tint(Theme.accent)
 
-                // 四档快捷尺寸，只显示档位名，不显示数字
-                WrapRow(spacing: 8) {
-                    ForEach(SizePreset.all) { preset in
-                        OptionButton(
-                            title: preset.name,
-                            active: SizePreset.name(for: spec.fontSize) == preset.name
-                        ) {
-                            model.update { $0.fontSize = preset.size }
-                        }
-                    }
-                }
-
-                Slider(
-                    value: Binding(
-                        get: { spec.fontSize },
-                        set: { value in model.update { $0.fontSize = value } }
-                    ),
-                    in: SizePreset.range,
-                    step: 2
-                )
-                .tint(Theme.accent)
-
-                Text("字放大后放不下的行会折行，卡片高度跟着变长。")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
-            }
+            Text("字放大后放不下的行会折行，卡片高度跟着变长。")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.muted)
         }
     }
 }

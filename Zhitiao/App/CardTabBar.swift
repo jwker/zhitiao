@@ -13,7 +13,7 @@ enum CardTab: String, CaseIterable, Identifiable {
         case .element: return "元素"
         case .emphasis: return "强调"
         case .illustration: return "插画"
-        case .font: return "字体"
+        case .font: return "字号"
         }
     }
 }

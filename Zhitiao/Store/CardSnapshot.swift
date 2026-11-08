@@ -6,7 +6,7 @@ struct CardSnapshot: Codable, Equatable {
     var lines: [String] = []
     var fontFamily: String = "sans"
     var fontWeight: Double = 900
-    var fontSize: Double = 96
+    var fontSize: Double = 50
     var alignH: String = "center"
     var alignV: String = "middle"
     var bgHex: String = "#FFFFFF"
@@ -35,7 +35,7 @@ struct CardSnapshot: Codable, Equatable {
         fontWeight = try container.decode(Double.self, forKey: .fontWeight)
         fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize)
             ?? legacy.decodeIfPresent(Double.self, forKey: .maxSize)
-            ?? 96
+            ?? 50
         alignH = try container.decode(String.self, forKey: .alignH)
         alignV = try container.decode(String.self, forKey: .alignV)
         bgHex = try container.decode(String.self, forKey: .bgHex)
