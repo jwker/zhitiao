@@ -206,7 +206,7 @@ struct CardSpec {
     var font: FontFamily = .sans
     var fontWeight: CGFloat = 900
     /// 字号由用户直接调，不再区分「上限」和「实际值」
-    var fontSize: CGFloat = 100
+    var fontSize: CGFloat = 96
     var align: (h: AlignH, v: AlignV) = (.center, .middle)
     var palette: Palette = .make(bgHex: "#FFFFFF", accentHex: "#E23D28")
     var background: BackgroundType = .solid

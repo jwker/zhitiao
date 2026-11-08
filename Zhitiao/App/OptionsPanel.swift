@@ -237,12 +237,20 @@ struct OptionsPanel: View {
                         get: { spec.fontSize },
                         set: { value in model.update { $0.fontSize = value } }
                     ),
-                    in: 48...220,
+                    in: 24...140,
                     step: 2
                 )
                 .tint(Theme.accent)
 
-                Text("字放大后放不下的行会自动折行，卡片高度跟着变长。")
+                HStack {
+                    Text("小").font(.system(size: 12)).foregroundStyle(Theme.muted)
+                    Spacer()
+                    Text("大").font(.system(size: 12)).foregroundStyle(Theme.muted)
+                }
+
+                Text("字放大后放不下的行会折行，卡片高度跟着变长。")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.muted)
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
             }

@@ -55,6 +55,9 @@ struct CardScreen: View {
 
     // MARK: - 选项模式
 
+    /// 舞台高度：卡片再长也只占这么高，超出就滚动
+    private let stageHeight: CGFloat = 380
+
     private var stage: some View {
         VStack(spacing: 12) {
             Button {
@@ -62,17 +65,12 @@ struct CardScreen: View {
             } label: {
                 Group {
                     if let preview = model.preview {
-                        Image(uiImage: preview)
-                            .resizable()
-                            .scaledToFit()
-                            .frame(maxWidth: .infinity, maxHeight: 330)
-                            .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
-                            .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+                        cardView(preview)
                     } else {
                         RoundedRectangle(cornerRadius: 4, style: .continuous)
                             .fill(Theme.bg)
                             .aspectRatio(3.0 / 4.0, contentMode: .fit)
-                            .frame(maxHeight: 330)
+                            .frame(height: stageHeight)
                     }
                 }
             }
@@ -91,6 +89,36 @@ struct CardScreen: View {
         .background(Theme.bg)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Theme.line).frame(height: 1)
+        }
+    }
+
+    /// 卡片显示规则：
+    ///   不超过 3:4 的卡片 —— 按高度缩放，整张都能看到
+    ///   比 3:4 更长的卡片 —— 按屏幕宽度显示，上下滚动着看，不缩小
+    @ViewBuilder
+    private func cardView(_ image: UIImage) -> some View {
+        let ratio = image.size.height / max(image.size.width, 1)
+        let isTall = ratio > 4.0 / 3.0 + 0.01
+
+        if isTall {
+            ScrollView(.vertical, showsIndicators: true) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(maxWidth: .infinity)
+                    .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                    .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
+                    .padding(.vertical, 2)
+            }
+            .frame(height: stageHeight)
+            .padding(.horizontal, 16)
+        } else {
+            Image(uiImage: image)
+                .resizable()
+                .scaledToFit()
+                .frame(height: stageHeight)
+                .clipShape(RoundedRectangle(cornerRadius: 4, style: .continuous))
+                .shadow(color: .black.opacity(0.12), radius: 12, y: 6)
         }
     }
 
