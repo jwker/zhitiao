@@ -120,10 +120,10 @@ enum Renderer {
         // 顶部 emoji 行：占一行高度，下面再多留一点空隙，让它像一个符号而不是正文
         let emojiText = spec.emoji.joined()
         let hasEmoji = !emojiText.isEmpty
-        // emoji 放大到正文的两倍，作为卡片顶部的视觉符号；
+        // emoji 放大到正文的 3.5 倍，作为卡片顶部的视觉符号；
         // 但字号很大 + emoji 很多时要收一收，别超出卡片宽度
         let emojiCount = max(1, spec.emoji.count)
-        let emojiSize = min(size * 2, contentWidth * 0.98 / CGFloat(emojiCount))
+        let emojiSize = min(size * 3.5, contentWidth * 0.98 / CGFloat(emojiCount))
         // 行盒要装得下 emoji 的升部（≈1.0×字号）和降部（≈0.31×字号），否则字形会溢到间距里
         let emojiHeight = hasEmoji ? emojiSize * 1.32 : 0
         // 与正文的间距按 emoji 尺寸算，emoji 越大空隙越松

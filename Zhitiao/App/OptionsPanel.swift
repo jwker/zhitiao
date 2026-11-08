@@ -84,7 +84,7 @@ struct OptionsPanel: View {
             Text(
                 spec.emoji.count >= EmojiCatalog.maxSelection
                     ? "已经选满 \(EmojiCatalog.maxSelection) 个，点上面的已选项可以取消。重复点同一个可以叠加。"
-                    : "最多选 \(EmojiCatalog.maxSelection) 个，可以重复选同一个。会排在正文第一行的上方，字号是正文的两倍，对齐跟随正文。"
+                    : "最多选 \(EmojiCatalog.maxSelection) 个，可以重复选同一个。会排在正文第一行的上方，字号是正文的 3.5 倍，对齐跟随正文。"
             )
             .font(.system(size: 13))
             .foregroundStyle(Theme.muted)
