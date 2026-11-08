@@ -11,7 +11,11 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		000000000000000000000002 /* Zhitiao */ = {isa = PBXFileSystemSynchronizedRootGroup; explicitFileTypes = {}; explicitFolders = (); path = Zhitiao; sourceTree = "<group>"; };
+		000000000000000000000002 /* Zhitiao */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = Zhitiao;
+			sourceTree = "<group>";
+		};
 /* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -180,11 +184,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 35FZY67FQU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "纸条";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "保存卡片图片需要访问相册。";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存卡片图片需要访问相册。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "保存卡片图片需要访问相册。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -194,7 +199,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.zhitiao.app";
+				PRODUCT_BUNDLE_IDENTIFIER = com.zhitiao.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -210,11 +215,12 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				DEVELOPMENT_ASSET_PATHS = "";
+				DEVELOPMENT_TEAM = 35FZY67FQU;
 				ENABLE_PREVIEWS = YES;
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_CFBundleDisplayName = "纸条";
-				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "保存卡片图片需要访问相册。";
 				INFOPLIST_KEY_NSPhotoLibraryAddUsageDescription = "保存卡片图片需要访问相册。";
+				INFOPLIST_KEY_NSPhotoLibraryUsageDescription = "保存卡片图片需要访问相册。";
 				INFOPLIST_KEY_UIApplicationSceneManifest_Generation = YES;
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -224,7 +230,7 @@
 					"@executable_path/Frameworks",
 				);
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = "com.zhitiao.app";
+				PRODUCT_BUNDLE_IDENTIFIER = com.zhitiao.app;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_VERSION = 5.0;
@@ -235,20 +241,20 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		00000000000000000000000B /* Build configuration list for PBXProject "Zhitiao" */ = {
-			isa = XCConfigurationList;
-			buildConfigurations = (
-				00000000000000000000000C /* Debug */,
-				00000000000000000000000D /* Release */,
-			);
-			defaultConfigurationIsVisible = 0;
-			defaultConfigurationName = Release;
-		};
 		000000000000000000000009 /* Build configuration list for PBXNativeTarget "Zhitiao" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				00000000000000000000000E /* Debug */,
 				00000000000000000000000F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		00000000000000000000000B /* Build configuration list for PBXProject "Zhitiao" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				00000000000000000000000C /* Debug */,
+				00000000000000000000000D /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

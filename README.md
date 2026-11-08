@@ -2,7 +2,7 @@
 
 把文字做成一张排版精美的图片卡片。原生 iOS 应用，SwiftUI + Core Graphics，没有 WebView。
 
-同一份产品的 H5 原型在仓库上一级的 `text-card-studio/`；这一份是原生重写。
+同一份产品的 H5 原型在同级的 `../zhitiao-h5/`；这一份是原生重写。
 
 ## 它做什么
 
@@ -28,22 +28,22 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 
 ## 用起来
 
-**输入页**：写文字，一行就是卡片上的一行大字。三个示例可以直接试。
+**首页**：纸条列表。每行显示正文第一行 + 后面两行，右侧是相对时间（今天 / 昨天 / 11月6日）。点一行进卡片页，右上角 ＋ 新建。
 
-**卡片页**：预览 + 「下载 PNG」（2160×2880）+ 选项面板：
+**卡片页 · 选项模式**：上方是卡片预览（点它进入编辑），底部 6 个 tab 切换选项，不再是长滚动。
 
-| 选项 | 取值 |
+| tab | 里面有什么 |
 | --- | --- |
-| 背景 | 纯色 / 渐变 / 网格 / 横线稿纸 / 点阵 / 光束 / 颗粒纸感 / 斜纹 |
-| 对齐 | 水平（左 / 中 / 右）× 垂直（上 / 中 / 下） |
+| 背景 | 8 种底纹 + 8 套配色 |
+| 对齐 | 水平（左 / 中 / 右）、垂直（上 / 中 / 下） |
 | 元素 | 20 个固定装饰（引号、破折号、星号、箭头、胶带、印章、圈选、手绘箭头…） |
-| 强调样式 | 无强调 / 荧光笔 / 色块 / 变色 / 下划线 / 波浪线 |
-| 插画 | 无插画，或从 AI 给出的候选里挑一张 |
-| 配色 | 8 套配色盘 |
-| 字号 | 90–240px 上限滑杆 |
-| 字体 | 黑体 / 宋体 / 楷体 |
+| 强调 | 6 种样式；没有强调词时这里可以让模型挑 |
+| 插画 | 无插画，或从模型给的候选里挑一张；没有候选时这里可以让模型配 |
+| 字体 | 黑体 / 宋体 / 楷体，字号上限滑杆 90–240px |
 
-**设置**：模型接口地址、Key、模型名，以及调试模式（不联网，用本地规则）。
+右上角「导出」出 2160×2880 的图片，走系统分享面板。
+
+**卡片页 · 编辑模式**：点卡片进入。上方缩成一条 63×84 的迷你预览（旁边写当前样式：纯色 · 居中 · 荧光笔），编辑区拿到全宽和剩余高度（17px / 1.9 行高，一屏 9–10 行）。每敲一个字迷你预览即时重排。点「看大图」进全屏预览，点任意处返回。右上角「完成」收起键盘。
 
 ## 模型
 
@@ -62,19 +62,21 @@ OpenAI 兼容格式，默认指向阿里云百炼的 `/compatible-mode/v1`。模
 
 ## 数据
 
-- 正文用 `NSUbiquitousKeyValueStore` 同步，iCloud 不可用时自动退回本地存储。
-- 卡片参数和模型配置存在本机 `UserDefaults`。
+- 纸条列表用 `NSUbiquitousKeyValueStore` 同步（整份列表是一段 JSON），iCloud 不可用时自动退回 `UserDefaults`。
+- 每张纸条带自己的卡片设置（背景、对齐、元素、强调样式、字体、配色）。
+- 老版本只存了一条正文，启动时会自动搬成第一条纸条。
+- 空纸条不会被保存（退出时删掉）。
 - Key 只在本机，不上传。
 
 ## 目录
 
 ```
 Zhitiao/
-├─ App/            界面：ContentView、InputScreen、CardScreen、SettingsSheet、WrapRow
-├─ Core/           排版引擎：Renderer、Drawing（背景/元素/强调）、Illustrations（18 个简笔画）、CardSpec
+├─ App/            界面：ContentView、ListView、CardScreen、CardTabBar、OptionsPanel、FullPreview、Controls、SettingsSheet、WrapRow
+├─ Core/           排版引擎：Renderer、Drawing（背景/元素/强调）、Illustrations（18 个简笔画）、CardSpec、Document、TextSplit
 ├─ AI/             AIClient（只挑强调词和插画主体）、IllustrationGenerator（图像模型，可选）
 ├─ Store/          AppModel（状态）、DocumentStore（iCloud）、CardSnapshot（可存储快照）
-└─ Resources/
+design/            改版设计稿（HTML，浏览器打开）
 .ai/               AI 产物（不进版本库，见 .ai/README.md）
 ```
 
@@ -86,11 +88,13 @@ Zhitiao/
 2. 字号：宽度约束（最长行不超过可用宽度的 94%）与高度约束（整块不超过内容高度的 72%）取小者，且不超过滑杆设的上限。
 3. 行距：文字块比卡片矮时把行距撑开，最多 1.9 倍。
 4. 定位：水平三档、垂直三档；左对齐且有开头符号时先扣掉符号占位。
-5. 绘制顺序：背景 → 元素装饰 → 强调装饰 → 文字 → 插画（自动避开文字块）。
+5. 绘制顺序：背景 → 元素装饰 → 强调装饰 → 文字 → 插画。
+6. 插画落位：从小到大试 5 档尺寸，找第一个不压住任何一行文字的角落；都被占就用最小尺寸放到重叠面积最小的角——宁可小也不能没有。
 
 ## 已知限制
 
 - 长文不会自动拆成多张卡片。
+- 列表不支持删除（暂定）。
 - 插画默认用内置 18 个简笔画；接图像模型需要另外配置，且图片要经代理取回才能导出。
 - 楷体在部分系统上会回落到宋体。
 - 没有 App 图标和启动图。
@@ -98,12 +102,17 @@ Zhitiao/
 ## 调试
 
 ```bash
-# 用示例文字生成一张卡，并把 PNG 写到 App 的 Documents
-xcrun simctl launch booted com.zhitiao.app --demo --dump
+# 直接打开示例纸条的卡片页（选项模式）
+xcrun simctl launch booted com.zhitiao.app --demo
+
+# 打开就进编辑模式 / 打开就进全屏预览 / 跑一次模型分析
+xcrun simctl launch booted com.zhitiao.app --demo --edit
+xcrun simctl launch booted com.zhitiao.app --demo --preview
+xcrun simctl launch booted com.zhitiao.app --demo --generate
+
+# 直接切到某一类选项，例如插画
+xcrun simctl launch booted com.zhitiao.app --demo --generate --tab=illustration
 
 # 检查 18 个内置简笔画的风格是否一致
 xcrun simctl launch booted com.zhitiao.app --dump-icons
-
-# 指定图层组合验证，例如网格背景 + 左对齐 + 上对齐 + 「」 + 波浪线
-xcrun simctl launch booted com.zhitiao.app --demo --dump --variant=grid,left,top,quote-both,wave
 ```

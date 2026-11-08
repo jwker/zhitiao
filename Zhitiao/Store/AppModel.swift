@@ -1,40 +1,62 @@
 import Foundation
 import SwiftUI
 
-/// 应用状态：文字 → 模型分析 → 一张卡片 → 用户微调 → 导出。
+/// 应用状态：纸条列表 → 卡片页（选项模式 ⇄ 编辑模式，可看全屏预览）。
 @MainActor
 final class AppModel: ObservableObject {
 
-    enum Screen: Hashable {
-        case input
+    enum Screen {
+        case list
         case card
     }
 
-    @Published var screen: Screen = .input
-    @Published var text: String
-    @Published var spec: CardSpec
+    @Published var screen: Screen = .list
+    @Published var documents: [Document] = []
+    @Published var currentID: UUID?
+    @Published var isEditing = false
+    @Published var showFullPreview = false
+
+    /// 选项模式下的完整预览
+    @Published var preview: UIImage?
+    /// 编辑模式下顶部的迷你预览
+    @Published var peek: UIImage?
+
     @Published var illustrations: [Illustration] = []
-    @Published var rendered: UIImage?
     @Published var isBusy = false
-    @Published var status: String = ""
+    @Published var status = ""
     @Published var config: AIClient.Config
-    @Published var source: String = ""
 
     private let store = DocumentStore.shared
+    private var renderTask: Task<Void, Never>?
 
-    static let sample = "把时间花在哪里\n你反复刷的内容\n其实是在替别人\n定义你的注意力"
+    var current: Document? {
+        documents.first { $0.id == currentID }
+    }
+
+    var sortedDocuments: [Document] {
+        documents.sorted { $0.updatedAt > $1.updatedAt }
+    }
 
     init() {
-        text = store.text.isEmpty ? AppModel.sample : store.text
+        documents = store.documents
         config = store.config
-        let snapshot = store.spec
-        spec = snapshot.makeSpec(illustration: nil)
-        if !snapshot.lines.isEmpty {
-            spec.lines = snapshot.lines
-        }
-        refreshImage()
 
-        // 调试用：--dump-icons 输出素材总览，用来检查 18 个简笔画的风格
+        // 调试用：--demo 直接打开示例纸条的卡片页
+        if ProcessInfo.processInfo.arguments.contains("--demo") {
+            let doc = Document(text: AppModel.sample)
+            documents.insert(doc, at: 0)
+            currentID = doc.id
+            screen = .card
+            isEditing = ProcessInfo.processInfo.arguments.contains("--edit")
+            showFullPreview = ProcessInfo.processInfo.arguments.contains("--preview")
+            render()
+            persist()
+
+            // 调试用：--generate 立刻跑一次模型分析
+            if ProcessInfo.processInfo.arguments.contains("--generate") {
+                Task { await generate() }
+            }
+        }
         if ProcessInfo.processInfo.arguments.contains("--dump-icons") {
             if let data = DoodleSheet.image().pngData() {
                 let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
@@ -42,116 +64,71 @@ final class AppModel: ObservableObject {
                 try? data.write(to: url)
             }
         }
-
-        // 调试用：--demo 用示例文字生成一张卡；--dump 把导出的 PNG 写到 Documents
-        if ProcessInfo.processInfo.arguments.contains("--demo") {
-            text = AppModel.sample
-            Task {
-                await generate()
-                if ProcessInfo.processInfo.arguments.contains("--dump") {
-                    let image = exportImage()
-                    if let data = image.pngData() {
-                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                            .appendingPathComponent("zhitiao-card.png")
-                        try? data.write(to: url)
-                    }
-                }
-            }
-        }
     }
 
-    // MARK: - 生成
+    static let sample = "把时间花在哪里\n你反复刷的内容\n其实是在替别人\n定义你的注意力"
 
-    func generate() async {
-        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-        isBusy = true
-        status = "正在分析你的文字…"
-        defer { isBusy = false }
+    // MARK: - 导航
 
-        do {
-            let analysis = try await AIClient.analyze(text: text, config: config)
-            source = config.mock ? "调试模式：用本地规则代替模型输出" : "模型输出"
-
-            // 插画候选：先用内置简笔画占位，图像模型出图后再替换
-            let subjects = analysis.illustrationSubjects
-            illustrations = subjects.enumerated().map { index, subject in
-                Illustration(
-                    id: "illus-\(index)",
-                    subject: subject,
-                    image: nil,
-                    fallbackId: Illustration.fallbackIds[index % Illustration.fallbackIds.count]
-                )
-            }
-
-            var newSpec = CardSpec()
-            newSpec.lines = splitLines(text, maxChars: 12)
-            newSpec.emphasisWords = Array(analysis.emphasis.prefix(2))
-            let seed = Palette.seeds[Int(stableHash(text) % UInt64(Palette.seeds.count))]
-            newSpec.palette = Palette.make(bgHex: seed.bg, accentHex: seed.accent)
-            newSpec.illustration = illustrations.first
-            applyDebugVariant(&newSpec)
-            spec = newSpec
-
-            status = "模型挑出了 \(newSpec.emphasisWords.count) 个强调词、\(subjects.count) 个插画主体"
-            screen = .card
-            refreshImage()
-            persist()
-
-            // 图像模型有 Key 时再把插画换成真图
-            if !config.mock, !config.apiKey.isEmpty {
-                Task { await loadGeneratedIllustrations(subjects) }
-            }
-        } catch {
-            status = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
-            // 模型挂了也要能出卡：退回本地规则
-            let analysis = AIClient.mockAnalysis(text: text)
-            var fallback = CardSpec()
-            fallback.lines = splitLines(text, maxChars: 12)
-            fallback.emphasisWords = Array(analysis.emphasis.prefix(2))
-            spec = fallback
-            illustrations = []
-            refreshImage()
-            screen = .card
-        }
+    /// 新建：插一条空纸条，直接进卡片页并开始编辑
+    func createDocument() {
+        let doc = Document(text: "")
+        documents.insert(doc, at: 0)
+        currentID = doc.id
+        illustrations = []
+        status = ""
+        screen = .card
+        isEditing = true
+        render()
+        persist()
     }
 
-    /// 调试用变体：--variant=grid,left,top,quote,wave 这样逐个验证图层
-    private func applyDebugVariant(_ spec: inout CardSpec) {
-        let args = ProcessInfo.processInfo.arguments
-        guard let raw = args.first(where: { $0.hasPrefix("--variant=") }) else { return }
-        let parts = raw.replacingOccurrences(of: "--variant=", with: "").split(separator: ",").map(String.init)
-        for part in parts {
-            if let bg = BackgroundType(rawValue: part) { spec.background = bg }
-            if let h = AlignH(rawValue: part) { spec.align.h = h }
-            if let v = AlignV(rawValue: part) { spec.align.v = v }
-            if let e = EmphasisStyle(rawValue: part) { spec.emphasisStyle = e }
-            if let element = ElementItem.all.first(where: { $0.id == part }) { spec.element = element }
-        }
+    /// 打开已有纸条
+    func open(_ document: Document) {
+        currentID = document.id
+        isEditing = false
+        illustrations = document.makeSpec().illustration.map { [$0] } ?? []
+        status = ""
+        screen = .card
+        render()
     }
 
-    private func loadGeneratedIllustrations(_ subjects: [String]) async {
-        let imageConfig = IllustrationGenerator.Config.default
-        guard !imageConfig.apiKey.isEmpty else { return }
-        for index in subjects.indices {
-            let image = await IllustrationGenerator.generate(subject: subjects[index], config: imageConfig)
-            guard let image else { continue }
-            await MainActor.run {
-                guard index < self.illustrations.count else { return }
-                self.illustrations[index].image = image
-                if self.spec.illustration?.id == self.illustrations[index].id {
-                    self.refreshImage()
-                }
-            }
-        }
+    func backToList() {
+        commitOrder()
+        isEditing = false
+        screen = .list
+        persist()
     }
 
-    // MARK: - 微调
+    func beginEditing() {
+        isEditing = true
+        render()
+    }
 
+    func endEditing() {
+        isEditing = false
+        commitOrder()
+        render()
+        persist()
+    }
+
+    // MARK: - 修改
+
+    /// 改正文：即时重排预览
+    func updateText(_ text: String) {
+        guard let index = documents.firstIndex(where: { $0.id == currentID }) else { return }
+        documents[index].text = text
+        documents[index].updatedAt = Date()
+        scheduleRender()
+    }
+
+    /// 改卡片设置
     func update(_ mutate: (inout CardSpec) -> Void) {
-        var updated = spec
-        mutate(&updated)
-        spec = updated
-        refreshImage()
+        guard let index = documents.firstIndex(where: { $0.id == currentID }) else { return }
+        var spec = documents[index].makeSpec()
+        mutate(&spec)
+        documents[index].snapshot = CardSnapshot(spec: spec)
+        render()
         persist()
     }
 
@@ -162,67 +139,114 @@ final class AppModel: ObservableObject {
 
     func applyPalette(index: Int) {
         let seed = Palette.seeds[index % Palette.seeds.count]
-        update {
-            $0.palette = Palette.make(bgHex: seed.bg, accentHex: seed.accent)
+        update { $0.palette = Palette.make(bgHex: seed.bg, accentHex: seed.accent) }
+    }
+
+    /// 当前设置的摘要，编辑态顶部那条用
+    var styleSummary: String {
+        guard let doc = current else { return "" }
+        let spec = doc.makeSpec()
+        return [spec.background.name, spec.align.h.name, spec.emphasisStyle.name].joined(separator: " · ")
+    }
+
+    // MARK: - 生成
+
+    func generate() async {
+        guard let index = documents.firstIndex(where: { $0.id == currentID }) else { return }
+        let text = documents[index].text
+        guard !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        isBusy = true
+        status = "正在分析你的文字…"
+        defer { isBusy = false }
+
+        do {
+            let analysis = try await AIClient.analyze(text: text, config: config)
+            let subjects = analysis.illustrationSubjects
+            illustrations = subjects.enumerated().map { index, subject in
+                Illustration(
+                    id: "illus-\(index)",
+                    subject: subject,
+                    image: nil,
+                    fallbackId: Illustration.fallbackIds[index % Illustration.fallbackIds.count]
+                )
+            }
+
+            var spec = documents[index].makeSpec()
+            spec.emphasisWords = Array(analysis.emphasis.prefix(2))
+            spec.illustration = illustrations.first
+            documents[index].snapshot = CardSnapshot(spec: spec)
+            documents[index].updatedAt = Date()
+
+            status = "模型挑出了 \(spec.emphasisWords.count) 个强调词、\(subjects.count) 个插画主体"
+            render()
+            persist()
+        } catch {
+            status = (error as? LocalizedError)?.errorDescription ?? error.localizedDescription
         }
     }
 
     // MARK: - 渲染
 
-    func refreshImage() {
-        rendered = Renderer.render(spec: spec, lines: spec.lines, scale: 0.42)
+    /// 选项模式要完整预览，编辑模式只要顶部那条迷你预览
+    func render() {
+        guard let doc = current else {
+            preview = nil
+            peek = nil
+            return
+        }
+        let spec = doc.makeSpec()
+        preview = Renderer.render(spec: spec, lines: spec.lines, scale: 0.42)
+        peek = Renderer.render(spec: spec, lines: spec.lines, scale: 0.09)
     }
 
-    func exportImage() -> UIImage {
-        Renderer.render(spec: spec, lines: spec.lines, scale: 2)
+    /// 打字时不必每帧都重绘大图，只更新迷你预览
+    private func scheduleRender() {
+        renderTask?.cancel()
+        let snapshotDocument = current
+        renderTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 40_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                guard let self, let doc = snapshotDocument else { return }
+                let spec = doc.makeSpec()
+                self.peek = Renderer.render(spec: spec, lines: spec.lines, scale: 0.09)
+                self.preview = Renderer.render(spec: spec, lines: spec.lines, scale: 0.42)
+            }
+        }
+    }
+
+    /// 全屏预览用的图（比卡片页的预览大一档）
+    func exportPreview() -> UIImage? {
+        guard let doc = current else { return nil }
+        let spec = doc.makeSpec()
+        return Renderer.render(spec: spec, lines: spec.lines, scale: 0.9)
+    }
+
+    /// 导出：两倍图
+    func exportImage() -> UIImage? {
+        guard let doc = current else { return nil }
+        let spec = doc.makeSpec()
+        return Renderer.render(spec: spec, lines: spec.lines, scale: 2)
     }
 
     // MARK: - 存储
 
-    private func persist() {
-        store.text = text
+    /// 最近修改的排前面
+    private func commitOrder() {
+        documents = sortedDocuments
+    }
+
+    func persist() {
+        store.documents = documents
         store.config = config
-        store.spec = CardSnapshot(spec: spec)
-    }
-
-    func saveNow() {
-        persist()
-    }
-}
-
-/// 切行：一行就是一行大字，太长的按标点再断。
-func splitLines(_ text: String, maxChars: Int) -> [String] {
-    var out: [String] = []
-    for raw in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
-        var line = raw.trimmingCharacters(in: .whitespaces)
-        line = line.replacingOccurrences(
-            of: #"^(#{1,6}\s+|[-*+]\s+|>\s?)"#,
-            with: "",
-            options: .regularExpression
-        )
-        line = line.replacingOccurrences(
-            of: #"\*\*(.+?)\*\*|==(.+?)==|~~(.+?)~~"#,
-            with: "$1$2$3",
-            options: .regularExpression
-        )
-        .trimmingCharacters(in: .whitespaces)
-        if line.isEmpty { continue }
-
-        var rest = line
-        while rest.count > maxChars {
-            var cut = -1
-            let floor = max(1, Int(Double(maxChars) * 0.55))
-            for index in stride(from: min(maxChars, rest.count - 1), through: floor, by: -1) {
-                if "，。！？、；：,.!?;: ".contains(rest[rest.index(rest.startIndex, offsetBy: index)]) {
-                    cut = index + 1
-                    break
-                }
+        if let index = documents.firstIndex(where: { $0.id == currentID }) {
+            if documents[index].isEmpty {
+                // 空纸条不留着
+                documents.remove(at: index)
+                currentID = nil
+                store.documents = documents
             }
-            if cut < 0 { cut = maxChars }
-            out.append(String(rest.prefix(cut)).trimmingCharacters(in: .whitespaces))
-            rest = String(rest.dropFirst(cut)).trimmingCharacters(in: .whitespaces)
         }
-        if !rest.isEmpty { out.append(rest) }
     }
-    return out
 }

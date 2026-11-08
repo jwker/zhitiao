@@ -18,6 +18,8 @@ struct CardSnapshot: Codable, Equatable {
     var emphasisWords: [String] = []
     var illustrationID: String?
     var illustrationSubject: String?
+    /// 内置简笔画的 id：重新打开时用它还原插画
+    var illustrationFallback: String?
 
     init(spec: CardSpec) {
         lines = spec.lines
@@ -35,6 +37,7 @@ struct CardSnapshot: Codable, Equatable {
         emphasisWords = spec.emphasisWords
         illustrationID = spec.illustration?.id
         illustrationSubject = spec.illustration?.subject
+        illustrationFallback = spec.illustration?.fallbackId
     }
 
     func makeSpec(illustration: Illustration?) -> CardSpec {

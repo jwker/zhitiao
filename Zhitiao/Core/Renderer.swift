@@ -320,6 +320,8 @@ enum Renderer {
         return parts
     }
 
+    /// 插画画在角落。空间不够就缩小，再不够就用最小尺寸放到重叠最少的角上——
+    /// 宁可小一点，也不能整张卡没有插画。
     private static func drawIllustration(
         _ illustration: Illustration,
         spec: CardSpec,
@@ -328,42 +330,71 @@ enum Renderer {
         height: CGFloat,
         layout: Layout
     ) {
-        let size: CGFloat = 210
         let inset: CGFloat = 96
+        let sizes: [CGFloat] = [210, 176, 148, 124, 104]
+
+        let lineRects = layout.lines.map {
+            CGRect(x: $0.x, y: $0.y, width: $0.width, height: $0.height).insetBy(dx: -8, dy: -8)
+        }
+
         let corners: [CGPoint] = [
-            CGPoint(x: padding.left + size / 2, y: padding.top + size / 2),
-            CGPoint(x: width - padding.right - size / 2, y: padding.top + size / 2),
-            CGPoint(x: padding.left + size / 2, y: height - padding.bottom - size / 2),
-            CGPoint(x: width - padding.right - size / 2, y: height - padding.bottom - size / 2)
+            CGPoint(x: inset + 60, y: inset + 60),
+            CGPoint(x: width - inset - 60, y: inset + 60),
+            CGPoint(x: inset + 60, y: height - inset - 60),
+            CGPoint(x: width - inset - 60, y: height - inset - 60)
         ]
 
-        let textLeft = layout.lines.map(\.x).min() ?? padding.left
-        let textRight = layout.lines.map { $0.x + $0.width }.max() ?? padding.left
-        let textTop = layout.lines.first?.y ?? padding.top
-        let textBottom = layout.lines.last.map { $0.y + $0.height } ?? padding.top
-
-        for corner in corners {
-            let overlaps = corner.x + size / 2 > textLeft - 10
-                && corner.x - size / 2 < textRight + 10
-                && corner.y + size / 2 > textTop - 10
-                && corner.y - size / 2 < textBottom + 10
-            if overlaps { continue }
-
-            ctx.saveGState()
-            ctx.setAlpha(0.96)
-            if let image = illustration.image {
-                image.draw(in: CGRect(x: corner.x - size / 2, y: corner.y - size / 2, width: size, height: size))
-            } else {
-                Illustrations.draw(
-                    id: illustration.fallbackId,
-                    at: corner,
-                    size: size,
-                    in: ctx
-                )
-            }
-            ctx.restoreGState()
-            return
+        func frame(for center: CGPoint, size: CGFloat) -> CGRect {
+            CGRect(x: center.x - size / 2, y: center.y - size / 2, width: size, height: size)
         }
+
+        var chosen: (center: CGPoint, size: CGFloat)?
+
+        // 先找不压住任何一行文字的尺寸
+        outer: for size in sizes {
+            for center in corners {
+                let box = frame(for: center, size: size)
+                let hitsText = lineRects.contains { $0.intersects(box) }
+                if !hitsText {
+                    chosen = (center, size)
+                    break outer
+                }
+            }
+        }
+
+        // 都压住就用最小尺寸，挑重叠面积最小的角
+        if chosen == nil {
+            let size: CGFloat = 104
+            var best: (center: CGPoint, overlap: CGFloat)?
+            for center in corners {
+                let box = frame(for: center, size: size)
+                let overlap = lineRects.reduce(CGFloat(0)) { sum, rect in
+                    let intersection = rect.intersection(box)
+                    return sum + (intersection.isNull ? 0 : intersection.width * intersection.height)
+                }
+                if best == nil || overlap < best!.overlap {
+                    best = (center, overlap)
+                }
+            }
+            if let best { chosen = (best.center, size) }
+        }
+
+        guard let chosen else { return }
+        let box = frame(for: chosen.center, size: chosen.size)
+
+        ctx.saveGState()
+        ctx.setAlpha(0.96)
+        if let image = illustration.image {
+            image.draw(in: box)
+        } else {
+            Illustrations.draw(
+                id: illustration.fallbackId,
+                at: CGPoint(x: box.midX, y: box.midY),
+                size: chosen.size,
+                in: ctx
+            )
+        }
+        ctx.restoreGState()
     }
 
     static func weightToUIFontWeight(_ weight: CGFloat) -> UIFont.Weight {

@@ -1,10 +1,9 @@
 import Foundation
-import UIKit
 
-/// 文档存储：当前文字和少量偏好。
+/// 数据层：纸条列表 + 模型配置。
 ///
-/// 优先用 iCloud（`NSUbiquitousKeyValueStore`）；没有 iCloud 权限或未登录时，
-/// 自动退回本地存储，功能不受影响。
+/// 纸条列表优先写 iCloud（`NSUbiquitousKeyValueStore`）；没有 iCloud 权限或未登录时
+/// 自动退回本机 `UserDefaults`，功能不受影响。
 final class DocumentStore {
 
     static let shared = DocumentStore()
@@ -13,43 +12,58 @@ final class DocumentStore {
     private let defaults = UserDefaults.standard
 
     private enum Key {
-        static let text = "zhitiao.text"
-        static let spec = "zhitiao.spec"
+        static let documents = "zhitiao.documents.v2"
         static let config = "zhitiao.aiConfig"
+        /// 旧版本的单个正文，用来做一次性迁移
+        static let legacyText = "zhitiao.text"
+        static let legacySpec = "zhitiao.spec"
     }
 
     private init() {
         cloud.synchronize()
     }
 
-    // MARK: - 正文
+    // MARK: - 纸条列表
 
-    var text: String {
+    var documents: [Document] {
         get {
-            let value = cloud.string(forKey: Key.text)
-                ?? defaults.string(forKey: Key.text)
-                ?? ""
-            return value
+            if let data = cloud.data(forKey: Key.documents),
+               let list = try? JSONDecoder().decode([Document].self, from: data) {
+                return list
+            }
+            if let data = defaults.data(forKey: Key.documents),
+               let list = try? JSONDecoder().decode([Document].self, from: data) {
+                return list
+            }
+            return migrateLegacy()
         }
         set {
-            defaults.set(newValue, forKey: Key.text)
-            cloud.set(newValue, forKey: Key.text)
+            guard let data = try? JSONEncoder().encode(newValue) else { return }
+            defaults.set(data, forKey: Key.documents)
+            cloud.set(data, forKey: Key.documents)
             cloud.synchronize()
         }
     }
 
-    // MARK: - 卡片参数
+    /// 老版本只存了一条正文和一个卡片设置，搬成第一条纸条
+    private func migrateLegacy() -> [Document] {
+        guard let text = defaults.string(forKey: Key.legacyText),
+              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        else { return [] }
 
-    var spec: CardSnapshot {
-        get {
-            guard let data = defaults.data(forKey: Key.spec) else { return CardSnapshot(spec: CardSpec()) }
-            return (try? JSONDecoder().decode(CardSnapshot.self, from: data)) ?? CardSnapshot(spec: CardSpec())
+        let snapshot: CardSnapshot
+        if let data = defaults.data(forKey: Key.legacySpec),
+           let saved = try? JSONDecoder().decode(CardSnapshot.self, from: data) {
+            snapshot = saved
+        } else {
+            snapshot = CardSnapshot(spec: CardSpec())
         }
-        set {
-            if let data = try? JSONEncoder().encode(newValue) {
-                defaults.set(data, forKey: Key.spec)
-            }
-        }
+
+        let document = Document(text: text, snapshot: snapshot)
+        defaults.removeObject(forKey: Key.legacyText)
+        defaults.removeObject(forKey: Key.legacySpec)
+        documents = [document]
+        return [document]
     }
 
     // MARK: - 模型配置

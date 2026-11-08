@@ -84,7 +84,7 @@ struct SettingsSheet: View {
         model.config.apiKey = apiKey
         model.config.model = modelName
         model.config.mock = mock
-        model.saveNow()
+        model.persist()
     }
 
     private func test() async {
