@@ -188,7 +188,7 @@ struct CardScreen: View {
                     .font(.system(size: 13, weight: .medium))
                     .foregroundStyle(Theme.muted)
                 Spacer()
-                Text("\(splitLines(text, maxChars: 12).count) 行 · \(charCount(text)) 字")
+                Text("\(model.currentLayoutLineCount) 行 · \(charCount(text)) 字")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
             }

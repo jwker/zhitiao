@@ -1,7 +1,11 @@
 import Foundation
 
-/// 切行：一行就是一行大字，太长的按标点再断。
-func splitLines(_ text: String, maxChars: Int) -> [String] {
+/// 把正文切成「用户写的行」：按换行切，去掉 # - > 这些标记。
+///
+/// 注意：这里**不按字数硬断**。折行完全由渲染器按当前字号和卡片宽度决定
+/// （见 `Renderer.wrap`）。字号小的时候一行能放更多字，字号大就折得更碎，
+/// 按字数硬断会让小字号下面一行只用掉一半宽度。
+func splitLines(_ text: String) -> [String] {
     var out: [String] = []
 
     for raw in text.replacingOccurrences(of: "\r\n", with: "\n").components(separatedBy: "\n") {
@@ -19,23 +23,7 @@ func splitLines(_ text: String, maxChars: Int) -> [String] {
         .trimmingCharacters(in: .whitespaces)
 
         if line.isEmpty { continue }
-
-        var rest = line
-        while rest.count > maxChars {
-            var cut = -1
-            let floor = max(1, Int(Double(maxChars) * 0.55))
-            for index in stride(from: min(maxChars, rest.count - 1), through: floor, by: -1) {
-                let character = rest[rest.index(rest.startIndex, offsetBy: index)]
-                if "，。！？、；：,.!?;: ".contains(character) {
-                    cut = index + 1
-                    break
-                }
-            }
-            if cut < 0 { cut = maxChars }
-            out.append(String(rest.prefix(cut)).trimmingCharacters(in: .whitespaces))
-            rest = String(rest.dropFirst(cut)).trimmingCharacters(in: .whitespaces)
-        }
-        if !rest.isEmpty { out.append(rest) }
+        out.append(line)
     }
 
     return out

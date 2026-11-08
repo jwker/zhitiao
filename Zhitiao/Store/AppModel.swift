@@ -199,6 +199,13 @@ final class AppModel: ObservableObject {
         update { $0.palette = Palette.make(bgHex: seed.bg, accentHex: seed.accent) }
     }
 
+    /// 当前字号下实际排出来的行数（含自动折行），给编辑器顶部显示
+    var currentLayoutLineCount: Int {
+        guard let doc = current else { return 0 }
+        let spec = doc.makeSpec()
+        return Renderer.layout(spec: spec, lines: spec.lines).lines.count
+    }
+
     /// 当前设置的摘要，编辑态顶部那条用
     var styleSummary: String {
         guard let doc = current else { return "" }

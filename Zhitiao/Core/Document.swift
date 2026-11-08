@@ -20,13 +20,13 @@ struct Document: Identifiable, Codable, Equatable {
 
     /// 列表主行：正文第一行
     var title: String {
-        let first = splitLines(text, maxChars: 12).first ?? ""
+        let first = splitLines(text).first ?? ""
         return first.isEmpty ? "空白纸条" : first
     }
 
     /// 列表副行：剩下的内容
     var subtitle: String {
-        let lines = splitLines(text, maxChars: 12)
+        let lines = splitLines(text)
         guard lines.count > 1 else { return "" }
         return lines.dropFirst().prefix(2).joined(separator: " ")
     }
@@ -38,7 +38,7 @@ struct Document: Identifiable, Codable, Equatable {
     /// 转成渲染用的 spec（插画是会话内的，重新打开时用内置素材还原）
     func makeSpec() -> CardSpec {
         var spec = snapshot.makeSpec(illustration: nil)
-        spec.lines = splitLines(text, maxChars: 12)
+        spec.lines = splitLines(text)
         if let fallback = snapshot.illustrationFallback {
             spec.illustration = Illustration(
                 id: "restored",
