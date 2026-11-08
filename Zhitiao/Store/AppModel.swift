@@ -87,11 +87,6 @@ final class AppModel: ObservableObject {
                         try? await Task.sleep(nanoseconds: 700_000_000)
                         endEditing()
                     }
-                    if arguments.contains("--dump"), let image = exportImage(), let data = image.pngData() {
-                        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
-                            .appendingPathComponent("zhitiao-card.png")
-                        try? data.write(to: url)
-                    }
                 }
             }
         }
@@ -147,6 +142,40 @@ final class AppModel: ObservableObject {
                 documents[index].snapshot = CardSnapshot(spec: spec)
                 render()
             }
+        }
+
+        // 调试用：--dump 延迟把当前卡片的 2 倍图写到 Documents（与 --new 解耦）
+        if arguments.contains("--dump") {
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 1_200_000_000)
+                guard let self, let image = self.exportImage(), let data = image.pngData() else { return }
+                let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("zhitiao-card.png")
+                try? data.write(to: url)
+            }
+        }
+
+        // 调试用：--dump-spec 把当前卡片参数写到 Documents，方便核对迁移结果
+        if arguments.contains("--dump-spec") {
+            Task { [weak self] in
+                try? await Task.sleep(nanoseconds: 800_000_000)
+                guard let self, let doc = self.current else { return }
+                let spec = doc.makeSpec()
+                let text = """
+                weight=\(spec.fontWeight)
+                fontSize=\(spec.fontSize)
+                lines=\(spec.lines.count)
+                emoji=\(spec.emoji.joined())
+                """
+                let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                    .appendingPathComponent("spec.txt")
+                try? text.write(to: url, atomically: true, encoding: .utf8)
+            }
+        }
+
+        // 调试用：--open 直接打开列表里的第一条纸条
+        if arguments.contains("--open"), let first = sortedDocuments.first {
+            open(first)
         }
 
         // 调试用：--dump-emoji 把 emoji 目录的分组统计写到 Documents

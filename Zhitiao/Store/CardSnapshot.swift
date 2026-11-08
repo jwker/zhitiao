@@ -3,6 +3,10 @@ import UIKit
 
 /// 卡片参数的可存储快照（只存原始值，存 iCloud / UserDefaults）。
 struct CardSnapshot: Codable, Equatable {
+
+    /// 数据结构版本。旧数据没有这个字段，读到 1，用来做一次性迁移。
+    static let currentVersion = 2
+    var version: Int = CardSnapshot.currentVersion
     var lines: [String] = []
     var fontFamily: String = "sans"
     var fontWeight: Double = 400
@@ -31,9 +35,12 @@ struct CardSnapshot: Codable, Equatable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let legacy = try decoder.container(keyedBy: LegacyKey.self)
 
+        let storedVersion = try container.decodeIfPresent(Int.self, forKey: .version) ?? 1
+        version = CardSnapshot.currentVersion
+
         lines = try container.decode([String].self, forKey: .lines)
         fontFamily = try container.decode(String.self, forKey: .fontFamily)
-        fontWeight = try container.decode(Double.self, forKey: .fontWeight)
+        let storedWeight = try container.decode(Double.self, forKey: .fontWeight)
         fontSize = try container.decodeIfPresent(Double.self, forKey: .fontSize)
             ?? legacy.decodeIfPresent(Double.self, forKey: .maxSize)
             ?? 50
@@ -50,6 +57,16 @@ struct CardSnapshot: Codable, Equatable {
         illustrationID = try container.decodeIfPresent(String.self, forKey: .illustrationID)
         illustrationSubject = try container.decodeIfPresent(String.self, forKey: .illustrationSubject)
         illustrationFallback = try container.decodeIfPresent(String.self, forKey: .illustrationFallback)
+
+        if storedVersion < CardSnapshot.currentVersion {
+            // 旧数据的字重是历史值（900 只在回落分支生效过，实际渲染一直靠命名字体）。
+            // 换成系统字体后 900 会真的变成 Black，所以统一收到当前默认。
+            fontWeight = CardSnapshot.currentVersion >= 2 ? 400 : storedWeight
+            // 字号以前是「上限」（90–240），现在直接是字号，夹到新范围里
+            fontSize = min(max(fontSize, 24), 140)
+        } else {
+            fontWeight = storedWeight
+        }
     }
 
     init(spec: CardSpec) {
