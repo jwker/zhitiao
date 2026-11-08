@@ -138,6 +138,17 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // 调试用：--fontweight=400 指定字重
+        if let weightArg = arguments.first(where: { $0.hasPrefix("--fontweight=") }),
+           let value = Double(weightArg.replacingOccurrences(of: "--fontweight=", with: "")) {
+            if let index = documents.firstIndex(where: { $0.id == currentID }) {
+                var spec = documents[index].makeSpec()
+                spec.fontWeight = CGFloat(value)
+                documents[index].snapshot = CardSnapshot(spec: spec)
+                render()
+            }
+        }
+
         // 调试用：--dump-emoji 把 emoji 目录的分组统计写到 Documents
         if arguments.contains("--dump-emoji") {
             let lines = EmojiCatalog.groups.map { "\($0.name)\t\($0.emoji.count)" }
