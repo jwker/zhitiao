@@ -231,29 +231,76 @@ struct OptionsPanel: View {
             }
 
             VStack(alignment: .leading, spacing: 10) {
-                GroupLabel(title: "字号", value: "\(Int(spec.fontSize))px")
+                GroupLabel(title: "字号", value: SizePreset.name(for: spec.fontSize))
+
+                // 四档快捷尺寸，只显示档位名，不显示数字
+                WrapRow(spacing: 8) {
+                    ForEach(SizePreset.all) { preset in
+                        OptionButton(
+                            title: preset.name,
+                            active: SizePreset.name(for: spec.fontSize) == preset.name
+                        ) {
+                            model.update { $0.fontSize = preset.size }
+                        }
+                    }
+                }
+
                 Slider(
                     value: Binding(
                         get: { spec.fontSize },
                         set: { value in model.update { $0.fontSize = value } }
                     ),
-                    in: 24...140,
+                    in: SizePreset.range,
                     step: 2
                 )
                 .tint(Theme.accent)
 
-                HStack {
-                    Text("小").font(.system(size: 12)).foregroundStyle(Theme.muted)
-                    Spacer()
-                    Text("大").font(.system(size: 12)).foregroundStyle(Theme.muted)
-                }
-
                 Text("字放大后放不下的行会折行，卡片高度跟着变长。")
-                    .font(.system(size: 13))
-                    .foregroundStyle(Theme.muted)
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
             }
         }
+    }
+}
+
+/// 字号档位：界面上只显示名字，不显示数字
+enum SizePreset: String, CaseIterable, Identifiable {
+    case xsmall, small, medium, large
+
+    var id: String { rawValue }
+
+    var name: String {
+        switch self {
+        case .xsmall: return "较小"
+        case .small: return "小"
+        case .medium: return "中"
+        case .large: return "大"
+        }
+    }
+
+    var size: CGFloat {
+        switch self {
+        case .xsmall: return 40
+        case .small: return 50
+        case .medium: return 60
+        case .large: return 80
+        }
+    }
+
+    /// 滑杆可调的范围
+    static let range: ClosedRange<CGFloat> = 24...140
+
+    static var all: [SizePreset] { allCases }
+
+    /// 当前字号落在哪一档（相邻档位取中点作为分界）
+    static func name(for size: CGFloat) -> String {
+        let sorted = allCases.sorted { $0.size < $1.size }
+        if size <= sorted[0].size + 5 { return sorted[0].name }
+        for index in 1..<sorted.count {
+            let previous = sorted[index - 1]
+            let current = sorted[index]
+            if size < (previous.size + current.size) / 2 { return previous.name }
+        }
+        return sorted[sorted.count - 1].name
     }
 }
