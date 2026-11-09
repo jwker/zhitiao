@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<title>纸条 · 图标方案</title>
+<style>
+  body {
+    margin: 0;
+    padding: 56px 40px 80px;
+    background: #EFEDE8;
+    color: #16130F;
+    font-family: system-ui, -apple-system, 'PingFang SC', sans-serif;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1 { max-width: 1360px; margin: 0 auto 8px; font-size: 26px; font-weight: 500; letter-spacing: -0.01em; }
+  .sub { max-width: 1360px; margin: 0 auto 44px; font-size: 15px; line-height: 1.7; color: #6E6A63; }
+
+  .grid {
+    max-width: 1360px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 44px 40px;
+  }
+
+  .item { display: flex; flex-direction: column; gap: 14px; }
+
+  .icon {
+    width: 100%;
+    aspect-ratio: 1;
+    border-radius: 22.5%;
+    overflow: hidden;
+    box-shadow: 0 12px 32px rgba(22, 19, 15, .16);
+  }
+  .icon svg { display: block; width: 100%; height: 100%; }
+
+  .meta { display: flex; flex-direction: column; gap: 6px; }
+  .name { font-size: 17px; font-weight: 500; }
+  .desc { font-size: 14px; line-height: 1.65; color: #6E6A63; }
+  .small { display: flex; align-items: center; gap: 10px; margin-top: 2px; }
+  .small .icon { width: 60px; flex: none; border-radius: 22.5%; box-shadow: 0 4px 12px rgba(22,19,15,.14); }
+  .small span { font-size: 12px; color: #8C8780; }
+
+  .rec { max-width: 1360px; margin: 56px auto 0; font-size: 14px; line-height: 1.8; color: #3A3733; }
+  .rec b { font-weight: 500; }
+  .rec code { font-family: ui-monospace, Menlo, monospace; font-size: 13px; background: rgba(22,19,15,.06); padding: 1px 5px; border-radius: 4px; }
+</style>
+</head>
+<body>
+
+<h1>纸条 · 图标方案</h1>
+<p class="sub">六个方向。都是 1024×1024 无圆角原图（圆角由 iOS 自动裁切）。下面每个方案都附了 60px 的小尺寸预览——图标真正的考验在小尺寸。</p>
+
+<div class="grid">
+
+  <!-- ============ A 折角纸条 ============ -->
+  <div class="item">
+    <div class="icon" id="a"></div>
+    <div class="meta">
+      <span class="name">A · 折角纸条</span>
+      <span class="desc">最直白的一个：印章红底上一张白纸，右上角折起来，纸上有三行字。一眼看出「纸条」。</span>
+      <div class="small"><div class="icon" id="a-s"></div><span>60px 效果</span></div>
+    </div>
+  </div>
+
+  <!-- ============ B 荧光笔 ============ -->
+  <div class="item">
+    <div class="icon" id="b"></div>
+    <div class="meta">
+      <span class="name">B · 荧光笔卡片</span>
+      <span class="desc">把产品最核心的动作画出来：深色底上一张卡片，第一行文字被橙色笔触划过——就是卡片里的强调效果。</span>
+      <div class="small"><div class="icon" id="b-s"></div><span>60px 效果</span></div>
+    </div>
+  </div>
+
+  <!-- ============ C 朱印 ============ -->
+  <div class="item">
+    <div class="icon" id="c"></div>
+    <div class="meta">
+      <span class="name">C · 朱印</span>
+      <span class="desc">奶油纸底上一方朱红印章，里面一个「纸」字。最有性格，和界面里的印章红完全一致，但需要解释。</span>
+      <div class="small"><div class="icon" id="c-s"></div><span>60px 效果</span></div>
+    </div>
+  </div>
+
+  <!-- ============ D 大字 ============ -->
+  <div class="item">
+    <div class="icon" id="d"></div>
+    <div class="meta">
+      <span class="name">D · 大字</span>
+      <span class="desc">纯排版：深底上三行粗细不一的白色字条，中间一行是橙色。最抽象、最克制，小尺寸下辨识度最高。</span>
+      <div class="small"><div class="icon" id="d-s"></div><span>60px 效果</span></div>
+    </div>
+  </div>
+
+  <!-- ============ E 叠放 ============ -->
+  <div class="item">
+    <div class="icon" id="e"></div>
+    <div class="meta">
+      <span class="name">E · 叠放</span>
+      <span class="desc">两张纸片错开叠着，暗示「攒了很多纸条」——对应首页的历史列表。比单个纸片多一点层次。</span>
+      <div class="small"><div class="icon" id="e-s"></div><span>60px 效果</span></div>
+    </div>
+  </div>
+
+  <!-- ============ F 引号 ============ -->
+  <div class="item">
+    <div class="icon" id="f"></div>
+    <div class="meta">
+      <span class="name">F · 引号</span>
+      <span class="desc">红色底、一个大引号加三行字条。引号是「一段话」的符号，指向性强，但和不少读书、摘录类 App 撞脸。</span>
+      <div class="small"><div class="icon" id="f-s"></div><span>60px 效果</span></div>
+    </div>
+  </div>
+
+</div>
+
+<script>
+const PAPER = '#FBFAF7';
+const INK = '#16130F';
+const RED = '#C2410C';
+const CREAM = '#F4EEE4';
+const LINE = '#24211D';
+
+/** 纸张上的文字条 */
+function lines(x, y, width, count, opts = {}) {
+  const { gap = 0, height = 0, widths = [], color = LINE } = opts;
+  let out = '';
+  for (let i = 0; i < count; i++) {
+    const w = width * (widths[i] ?? 1);
+    out += `<rect x="${x}" y="${y + i * (height + gap)}" width="${w}" height="${height}" rx="${height / 2}" fill="${color}"/>`;
+  }
+  return out;
+}
+
+/* A · 折角纸条：红底 + 白纸 + 折角 + 三行字 */
+function iconA(size = 1024) {
+  const s = size / 1024;
+  const cw = 560 * s, ch = 720 * s;
+  const cx = (size - cw) / 2, cy = (size - ch) / 2;
+  const fold = 150 * s;
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${size}" height="${size}" fill="${RED}"/>
+    <!-- 纸 -->
+    <path d="M${cx} ${cy} H${cx + cw - fold} L${cx + cw} ${cy + fold} V${cy + ch} H${cx} Z" fill="${PAPER}"/>
+    <!-- 折角 -->
+    <path d="M${cx + cw - fold} ${cy} L${cx + cw} ${cy + fold} H${cx + cw - fold} Z" fill="#E8DFD1"/>
+    <!-- 文字 -->
+    ${lines(cx + 78 * s, cy + 190 * s, cw - 156 * s, 3, {
+      height: 62 * s, gap: 76 * s, widths: [1, 0.82, 0.62], color: LINE
+    })}
+    <!-- 底部橙色小段（签名） -->
+    <rect x="${cx + 78 * s}" y="${cy + ch - 150 * s}" width="${120 * s}" height="${26 * s}" rx="${13 * s}" fill="${RED}"/>
+  </svg>`;
+}
+
+/* B · 荧光笔卡片：深底 + 卡片 + 被划过的字 */
+function iconB(size = 1024) {
+  const s = size / 1024;
+  const cw = 620 * s, ch = 780 * s;
+  const cx = (size - cw) / 2, cy = (size - ch) / 2;
+  const lineH = 52 * s;
+  const firstY = cy + 206 * s;
+  const firstW = cw - 168 * s;
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${size}" height="${size}" fill="${INK}"/>
+    <rect x="${cx}" y="${cy}" width="${cw}" height="${ch}" rx="${34 * s}" fill="${PAPER}"/>
+    <!-- 荧光笔：左右探出、整体往下一格，像真的用笔划过 -->
+    <rect x="${cx + 84 * s - 34 * s}" y="${firstY + 12 * s}" width="${firstW + 68 * s}" height="${lineH + 26 * s}"
+          rx="${(lineH + 26 * s) / 2}" fill="${RED}" opacity="0.62"/>
+    <rect x="${cx + 84 * s}" y="${firstY}" width="${firstW}" height="${lineH}" rx="${lineH / 2}" fill="${LINE}"/>
+    <!-- 其余行 -->
+    ${lines(cx + 84 * s, cy + 350 * s, cw - 168 * s, 3, {
+      height: lineH, gap: 62 * s, widths: [0.94, 0.72, 0.86], color: LINE
+    })}
+  </svg>`;
+}
+
+/* C · 朱印：奶油底 + 朱红方印 + 「纸」 */
+function iconC(size = 1024) {
+  const s = size / 1024;
+  const sw = 620 * s;
+  const sx = (size - sw) / 2, sy = (size - sw) / 2;
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${size}" height="${size}" fill="${CREAM}"/>
+    <rect x="${sx}" y="${sy}" width="${sw}" height="${sw}" rx="${54 * s}" fill="${RED}"/>
+    <rect x="${sx + 34 * s}" y="${sy + 34 * s}" width="${sw - 68 * s}" height="${sw - 68 * s}" rx="${26 * s}"
+          fill="none" stroke="${CREAM}" stroke-width="${16 * s}" opacity="0.85"/>
+    <text x="${size / 2}" y="${sy + sw / 2 + 6 * s}"
+          font-family="Songti SC, STSong, serif" font-size="${430 * s}" font-weight="600"
+          fill="${CREAM}" text-anchor="middle" dominant-baseline="central">纸</text>
+  </svg>`;
+}
+
+/* D · 大字：深底 + 三行字条 */
+function iconD(size = 1024) {
+  const s = size / 1024;
+  const x = 196 * s;
+  const w = size - x * 2;
+  const h = 96 * s;
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${size}" height="${size}" fill="${INK}"/>
+    <rect x="${x}" y="${300 * s}" width="${w}" height="${h}" rx="${h / 2}" fill="${PAPER}"/>
+    <rect x="${x}" y="${464 * s}" width="${w}" height="${h}" rx="${h / 2}" fill="${RED}"/>
+    <rect x="${x}" y="${628 * s}" width="${w * 0.62}" height="${h}" rx="${h / 2}" fill="${PAPER}"/>
+  </svg>`;
+}
+
+/* E · 叠放：奶油底 + 两张错开的纸片 */
+function iconE(size = 1024) {
+  const s = size / 1024;
+  const cw = 520 * s, ch = 660 * s;
+  const backX = 320 * s, backY = 190 * s;
+  const frontX = 190 * s, frontY = 250 * s;
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <filter id="cardShadow" x="-40%" y="-40%" width="180%" height="180%">
+        <feDropShadow dx="0" dy="${16 * s}" stdDeviation="${26 * s}" flood-color="#16130F" flood-opacity="0.22"/>
+      </filter>
+    </defs>
+    <rect width="${size}" height="${size}" fill="#E9E2D6"/>
+
+    <!-- 后面那张：稍微偏右上，颜色暗一点 -->
+    <rect x="${backX}" y="${backY}" width="${cw}" height="${ch}" rx="${24 * s}"
+          fill="#F2ECE0" filter="url(#cardShadow)"/>
+
+    <!-- 前面那张 -->
+    <rect x="${frontX}" y="${frontY}" width="${cw}" height="${ch}" rx="${26 * s}"
+          fill="${PAPER}" filter="url(#cardShadow)"/>
+    ${lines(frontX + 70 * s, frontY + 150 * s, cw - 140 * s, 3, {
+      height: 54 * s, gap: 64 * s, widths: [1, 0.78, 0.56]
+    })}
+    <rect x="${frontX + 70 * s}" y="${frontY + ch - 130 * s}" width="${104 * s}" height="${22 * s}"
+          rx="${11 * s}" fill="${RED}"/>
+  </svg>`;
+}
+
+/* F · 引号：红底 + 几何「」 + 三行字条 */
+function iconF(size = 1024) {
+  const s = size / 1024;
+  const t = 66 * s;            // 笔画粗细
+  const top = 300 * s;
+  const drop = 250 * s;        // 竖笔长度
+  const arm = 230 * s;         // 横笔长度
+  return `<svg viewBox="0 0 ${size} ${size}" xmlns="http://www.w3.org/2000/svg">
+    <rect width="${size}" height="${size}" fill="${RED}"/>
+    <!-- 「 -->
+    <rect x="${268 * s}" y="${top}" width="${t}" height="${drop}" fill="${PAPER}"/>
+    <rect x="${268 * s}" y="${top}" width="${arm}" height="${t}" fill="${PAPER}"/>
+    <!-- 」 -->
+    <rect x="${756 * s - t}" y="${top}" width="${t}" height="${drop}" fill="${PAPER}"/>
+    <rect x="${756 * s - arm}" y="${top + drop - t}" width="${arm}" height="${t}" fill="${PAPER}"/>
+    ${lines(268 * s, 690 * s, 490 * s, 3, { height: 52 * s, gap: 56 * s, widths: [1, 0.7, 0.44], color: PAPER })}
+  </svg>`;
+}
+
+const icons = { a: iconA, b: iconB, c: iconC, d: iconD, e: iconE, f: iconF };
+for (const [key, fn] of Object.entries(icons)) {
+  document.getElementById(key).innerHTML = fn(1024);
+  const small = document.getElementById(`${key}-s`);
+  if (small) small.innerHTML = fn(1024);
+}
+</script>
+</body>
+</html>
+<!-- 备注：六个方案都为 1024×1024 不透底，符合 App Store 图标要求；圆角由 iOS 自动裁切。 -->
