@@ -55,8 +55,11 @@ struct CardScreen: View {
 
     // MARK: - 选项模式
 
-    /// 舞台高度：卡片再长也只占这么高，超出就滚动
-    private let stageHeight: CGFloat = 380
+    /// 舞台高度：卡片再长也只占这么高，超出就滚动。
+    /// Emoji 面板要放分组 tab 和多列网格，卡片缩一档，把高度让给下面的选择器。
+    private var stageHeight: CGFloat {
+        tab == .emoji ? 260 : 380
+    }
 
     private var stage: some View {
         VStack(spacing: 12) {

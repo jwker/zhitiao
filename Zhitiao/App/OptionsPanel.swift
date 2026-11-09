@@ -10,21 +10,31 @@ struct OptionsPanel: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(alignment: .leading, spacing: 20) {
-                switch tab {
-                case .emoji: emojiTab
-                case .background: backgroundTab
-                case .align: alignTab
-                // 依赖 AI，暂时下线
-                // case .element: elementTab
-                // case .emphasis: emphasisTab
-                // case .illustration: illustrationTab
-                case .font: fontTab
+        Group {
+            if tab == .emoji {
+                // Emoji 面板自己是满高的：左边分组、右边网格各滑各的，
+                // 外面再套一层滚动会让网格底部滑不到。
+                emojiTab
+                    .padding(16)
+                    .frame(maxWidth: .infinity)
+            } else {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        switch tab {
+                        case .background: backgroundTab
+                        case .align: alignTab
+                        // 依赖 AI，暂时下线
+                        // case .element: elementTab
+                        // case .emphasis: emphasisTab
+                        // case .illustration: illustrationTab
+                        case .font: fontTab
+                        default: EmptyView()
+                        }
+                    }
+                    .padding(16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
             }
-            .padding(16)
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
         .background(Theme.surface)
     }
@@ -38,33 +48,24 @@ struct OptionsPanel: View {
                 value: spec.emoji.isEmpty ? "不放" : "\(spec.emoji.count) / \(EmojiCatalog.maxSelection)"
             )
 
-            // 已选：点一下取消
-            HStack(spacing: 8) {
-                Button {
-                    model.clearEmoji()
-                } label: {
-                    Text("不放")
-                        .font(.system(size: 14))
-                        .foregroundStyle(spec.emoji.isEmpty ? Theme.bg : Theme.ink)
-                        .padding(.horizontal, 12)
-                        .frame(height: 40)
-                        .background(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .fill(spec.emoji.isEmpty ? Theme.ink : Theme.bg)
-                        )
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                .stroke(spec.emoji.isEmpty ? Color.clear : Theme.line, lineWidth: 1)
-                        )
-                }
-                .buttonStyle(.plain)
-
-                ForEach(Array(spec.emoji.enumerated()), id: \.offset) { index, item in
+            // 槽位：点 emoji 填进描边的那一格，点已填的格子取消，＋ 加一格，清空回到一格
+            WrapRow(spacing: 8) {
+                ForEach(Array(slots.enumerated()), id: \.offset) { index, item in
                     Button {
-                        model.removeEmoji(at: index)
+                        tapSlot(index)
                     } label: {
-                        Text(item)
-                            .font(.system(size: 26))
+                        slotLabel(item, isActive: index == activeSlot)
+                    }
+                    .buttonStyle(.plain)
+                }
+
+                if slots.count < EmojiCatalog.maxSelection {
+                    Button {
+                        addSlot()
+                    } label: {
+                        Text("＋")
+                            .font(.system(size: 20))
+                            .foregroundStyle(Theme.muted)
                             .frame(width: 44, height: 40)
                             .background(
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
@@ -72,52 +73,162 @@ struct OptionsPanel: View {
                             )
                             .overlay(
                                 RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                    .stroke(Theme.line, lineWidth: 1)
+                                    .strokeBorder(Theme.line, lineWidth: 1)
                             )
                     }
                     .buttonStyle(.plain)
                 }
 
-                Spacer(minLength: 0)
+                Button {
+                    clearSlots()
+                } label: {
+                    Text("清空")
+                        .font(.system(size: 14))
+                        .foregroundStyle(Theme.ink)
+                        .padding(.horizontal, 12)
+                        .frame(height: 40)
+                        .background(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .fill(Theme.bg)
+                        )
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                .stroke(Theme.line, lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
             }
 
-            Text(
-                spec.emoji.count >= EmojiCatalog.maxSelection
-                    ? "已经选满 \(EmojiCatalog.maxSelection) 个，点上面的已选项可以取消。重复点同一个可以叠加。"
-                    : "最多选 \(EmojiCatalog.maxSelection) 个，可以重复选同一个。会排在正文第一行的上方，字号是正文的 3.5 倍，对齐跟随正文。"
-            )
-            .font(.system(size: 13))
-            .foregroundStyle(Theme.muted)
-            .fixedSize(horizontal: false, vertical: true)
-
-            // 分组横滑
-            ForEach(EmojiCatalog.groups) { group in
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("\(group.name)  \(group.emoji.count)")
-                        .font(.system(size: 12))
-                        .foregroundStyle(Theme.muted)
-
-                    ScrollView(.horizontal, showsIndicators: false) {
-                        LazyHStack(spacing: 2) {
-                            ForEach(group.emoji, id: \.self) { item in
-                                Button {
-                                    model.appendEmoji(item)
-                                } label: {
-                                    Text(item)
-                                        .font(.system(size: 26))
-                                        .frame(width: 40, height: 40)
-                                        .background(
-                                            RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                                .fill(spec.emoji.contains(item) ? Theme.wash : Color.clear)
-                                        )
-                                }
-                                .buttonStyle(.plain)
+            // 左边竖着列分组，右边多列铺这一组的 emoji，两边都竖向滑
+            HStack(alignment: .top, spacing: 8) {
+                ScrollView(.vertical, showsIndicators: false) {
+                    VStack(spacing: 2) {
+                        ForEach(EmojiCatalog.groups) { group in
+                            Button {
+                                activeGroup = group.id
+                            } label: {
+                                Text(group.name)
+                                    .font(.system(size: 13))
+                                    .foregroundStyle(activeGroup == group.id ? Theme.ink : Theme.muted)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
+                                    .padding(.horizontal, 10)
+                                    .frame(height: 32)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(activeGroup == group.id ? Theme.wash : Color.clear)
+                                    )
                             }
+                            .buttonStyle(.plain)
                         }
                     }
+                    .padding(.trailing, 2)
+                }
+                .frame(width: 92)
+
+                ScrollView(.vertical, showsIndicators: true) {
+                    LazyVGrid(
+                        columns: [GridItem(.adaptive(minimum: 40, maximum: 44), spacing: 2)],
+                        spacing: 2
+                    ) {
+                        ForEach(activeGroupEmoji, id: \.self) { item in
+                            Button {
+                                fill(item)
+                            } label: {
+                                Text(item)
+                                    .font(.system(size: 26))
+                                    .frame(width: 40, height: 40)
+                                    .background(
+                                        RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                            .fill(spec.emoji.contains(item) ? Theme.wash : Color.clear)
+                                    )
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.trailing, 6)
+                    // 换分组时从顶部重新开始，不继承上一组的滚动位置
+                    .id(activeGroup)
                 }
             }
+            .frame(maxHeight: .infinity)
         }
+        .frame(maxHeight: .infinity, alignment: .topLeading)
+        .onAppear(perform: resetSlots)
+    }
+
+    /// 描边的格子是落点：空槽位用虚线，已填的用实线，落点加粗。
+    private func slotLabel(_ item: String?, isActive: Bool) -> some View {
+        Text(item ?? "")
+            .font(.system(size: 26))
+            .frame(width: 44, height: 40)
+            .background(
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .fill(Theme.bg)
+            )
+            .overlay {
+                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                    .strokeBorder(
+                        isActive ? Theme.ink : Theme.line,
+                        style: StrokeStyle(
+                            lineWidth: isActive ? 1.5 : 1,
+                            dash: item == nil ? [4, 3] : []
+                        )
+                    )
+            }
+    }
+
+    // MARK: - Emoji 槽位
+
+    /// 槽位、落点和当前分组只是面板里的编辑状态，卡片上只放非空的槽位。
+    @State private var slots: [String?] = [nil]
+    @State private var activeSlot = 0
+    @State private var activeGroup = EmojiCatalog.groups.first?.id ?? ""
+
+    private var activeGroupEmoji: [String] {
+        EmojiCatalog.groups.first { $0.id == activeGroup }?.emoji ?? []
+    }
+
+    /// 回到这一页时按卡片上现有的 emoji 重建槽位，并把分组切到第一个 emoji 所在的那组。
+    private func resetSlots() {
+        slots = spec.emoji.isEmpty ? [nil] : spec.emoji.map { $0 }
+        activeSlot = 0
+
+        if let first = spec.emoji.first,
+           let group = EmojiCatalog.groups.first(where: { $0.emoji.contains(first) }) {
+            activeGroup = group.id
+        } else {
+            activeGroup = EmojiCatalog.groups.first?.id ?? activeGroup
+        }
+    }
+
+    /// 点槽位只是把它设成落点，不改内容；要替换就先点格子、再点 emoji。
+    private func tapSlot(_ index: Int) {
+        activeSlot = index
+    }
+
+    private func addSlot() {
+        guard slots.count < EmojiCatalog.maxSelection else { return }
+        slots.append(nil)
+        activeSlot = slots.count - 1
+        commitSlots()
+    }
+
+    private func clearSlots() {
+        slots = [nil]
+        activeSlot = 0
+        commitSlots()
+    }
+
+    /// 点 emoji 填进落点；落点里已经是它，就取消这一格。
+    private func fill(_ emoji: String) {
+        guard !slots.isEmpty else { return }
+        activeSlot = min(activeSlot, slots.count - 1)
+        slots[activeSlot] = slots[activeSlot] == emoji ? nil : emoji
+        commitSlots()
+    }
+
+    private func commitSlots() {
+        model.setEmoji(slots.compactMap { $0 })
     }
 
     // MARK: - 背景（含配色）

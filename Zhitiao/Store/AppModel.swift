@@ -269,23 +269,9 @@ final class AppModel: ObservableObject {
         persist()
     }
 
-    /// 点一下就往后面加一个（允许重复），满了就忽略
-    func appendEmoji(_ emoji: String) {
-        update { spec in
-            guard spec.emoji.count < EmojiCatalog.maxSelection else { return }
-            spec.emoji.append(emoji)
-        }
-    }
-
-    func removeEmoji(at index: Int) {
-        update { spec in
-            guard index < spec.emoji.count else { return }
-            spec.emoji.remove(at: index)
-        }
-    }
-
-    func clearEmoji() {
-        update { $0.emoji = [] }
+    /// Emoji 面板改的是整组槽位：传进来的顺序就是卡片上的顺序，空槽位已经去掉。
+    func setEmoji(_ emoji: [String]) {
+        update { $0.emoji = Array(emoji.prefix(EmojiCatalog.maxSelection)) }
     }
 
     func selectIllustration(_ id: String?) {
