@@ -11,12 +11,12 @@ struct CardSnapshot: Codable, Equatable {
     var fontFamily: String = "sans"
     var fontWeight: Double = 400
     var fontSize: Double = 50
-    var alignH: String = "center"
-    var alignV: String = "middle"
+    var alignH: String = "left"
+    var alignV: String = "top"
     var bgHex: String = "#FFFFFF"
     var inkHex: String = "#1B1C1E"
     var accentHex: String = "#E23D28"
-    var background: String = "solid"
+    var background: String = "grid"
     var elementID: String = "none"
     var emphasisStyle: String = "marker"
     var emphasisWords: [String] = []
@@ -96,15 +96,15 @@ struct CardSnapshot: Codable, Equatable {
         spec.fontWeight = CGFloat(fontWeight)
         spec.fontSize = CGFloat(fontSize)
         spec.align = (
-            AlignH(rawValue: alignH) ?? .center,
-            AlignV(rawValue: alignV) ?? .middle
+            AlignH(rawValue: alignH) ?? .left,
+            AlignV(rawValue: alignV) ?? .top
         )
         spec.palette = Palette(
             bg: UIColor(hex: bgHex),
             ink: UIColor(hex: inkHex),
             accent: UIColor(hex: accentHex)
         )
-        spec.background = BackgroundType(rawValue: background) ?? .solid
+        spec.background = BackgroundType(rawValue: background) ?? .grid
         spec.element = ElementItem.find(elementID)
         spec.emphasisStyle = EmphasisStyle(rawValue: emphasisStyle) ?? .marker
         spec.emphasisWords = emphasisWords

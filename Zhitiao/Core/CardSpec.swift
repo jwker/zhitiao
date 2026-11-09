@@ -207,9 +207,9 @@ struct CardSpec {
     var fontWeight: CGFloat = 400
     /// 字号由用户直接调，不再区分「上限」和「实际值」
     var fontSize: CGFloat = 50
-    var align: (h: AlignH, v: AlignV) = (.center, .middle)
+    var align: (h: AlignH, v: AlignV) = (.left, .top)
     var palette: Palette = .make(bgHex: "#FFFFFF", accentHex: "#E23D28")
-    var background: BackgroundType = .solid
+    var background: BackgroundType = .grid
     var element: ElementItem = .all[0]
     /// 卡片顶部单独一行的 emoji（0–5 个，空数组表示不放）
     var emoji: [String] = []
