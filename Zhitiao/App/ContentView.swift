@@ -5,6 +5,10 @@ struct ContentView: View {
     @State private var showSettings = ProcessInfo.processInfo.arguments.contains("--settings")
     /// 用 item 触发弹出：保证 sheet 拿到图，而不是"先弹空页、再传值"
     @State private var sharePayload: SharePayload?
+    /// 分享面板里点了某个动作并完成，等面板关掉后再弹提示
+    @State private var exportCompleted = false
+    @State private var toast: String?
+    @State private var toastTask: Task<Void, Never>?
 
     var body: some View {
         ZStack {
@@ -21,11 +25,18 @@ struct ContentView: View {
                 }
             }
         }
+        .overlay(alignment: .bottom) { toastView }
         .sheet(isPresented: $showSettings) {
             SettingsSheet()
         }
-        .sheet(item: $sharePayload) { payload in
-            ShareSheet(items: [payload.image])
+        .sheet(item: $sharePayload, onDismiss: {
+            guard exportCompleted else { return }
+            exportCompleted = false
+            showToast("已导出")
+        }) { payload in
+            ShareSheet(items: [payload.image]) { completed in
+                exportCompleted = completed
+            }
         }
         .task {
             // 调试用：--export 启动后自动点一次导出
@@ -37,7 +48,36 @@ struct ContentView: View {
 
     private func export() {
         guard let image = model.exportImage() else { return }
+        exportCompleted = false
         sharePayload = SharePayload(image: image)
+    }
+
+    /// 底部提示条：自己消失，不挡操作。
+    @ViewBuilder
+    private var toastView: some View {
+        if let toast {
+            Text(toast)
+                .font(.system(size: 14, weight: .medium))
+                .foregroundStyle(Theme.bg)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 11)
+                .background(Capsule(style: .continuous).fill(Theme.ink.opacity(0.92)))
+                .padding(.bottom, 40)
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+                .allowsHitTesting(false)
+        }
+    }
+
+    private func showToast(_ text: String) {
+        toastTask?.cancel()
+        withAnimation(.easeOut(duration: 0.18)) { toast = text }
+        toastTask = Task {
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.easeIn(duration: 0.18)) { toast = nil }
+            }
+        }
     }
 
     private var topBar: some View {

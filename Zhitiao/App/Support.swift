@@ -40,12 +40,20 @@ enum DoodleSheet {
     }
 }
 
-/// 系统分享面板
+/// 系统分享面板。
+///
+/// `onComplete` 在用户真的完成某个动作（存相册、存文件、拷贝等）后回调 true，
+/// 取消或关掉面板回调 false。
 struct ShareSheet: UIViewControllerRepresentable {
     let items: [Any]
+    var onComplete: (Bool) -> Void = { _ in }
 
     func makeUIViewController(context: Context) -> UIActivityViewController {
-        UIActivityViewController(activityItems: items, applicationActivities: nil)
+        let controller = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        controller.completionWithItemsHandler = { _, completed, _, _ in
+            DispatchQueue.main.async { onComplete(completed) }
+        }
+        return controller
     }
 
     func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
