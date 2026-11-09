@@ -8,17 +8,19 @@ enum Backgrounds {
     static func paint(type: BackgroundType, palette: Palette, in ctx: CGContext, width: CGFloat, height: CGFloat) {
         switch type {
         case .gradient:
+            // 整张卡片从左上到右下走一遍：起点端浓、终点端淡，两端都铺到角上，
+            // 这样渐变铺满全卡，而不是只在某个角上叠一层色。
             let colors = [
-                palette.accent.withAlphaComponent(0.10).cgColor,
-                palette.accent.withAlphaComponent(0.02).cgColor,
-                UIColor.black.withAlphaComponent(0.06).cgColor
+                blend(palette.bg, with: palette.accent, amount: 0.24).cgColor,
+                blend(palette.bg, with: palette.accent, amount: 0.11).cgColor,
+                blend(palette.bg, with: palette.accent, amount: 0.02).cgColor
             ] as CFArray
-            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.55, 1]) {
+            if let gradient = CGGradient(colorsSpace: CGColorSpaceCreateDeviceRGB(), colors: colors, locations: [0, 0.5, 1]) {
                 ctx.drawLinearGradient(
                     gradient,
                     start: .zero,
-                    end: CGPoint(x: width * 0.35, y: height),
-                    options: []
+                    end: CGPoint(x: width, y: height),
+                    options: [.drawsBeforeStartLocation, .drawsAfterEndLocation]
                 )
             }
 
@@ -88,23 +90,14 @@ enum Backgrounds {
             }
 
         case .grain:
-            ctx.setFillColor(palette.ink.withAlphaComponent(0.045).cgColor)
-            var seed: UInt64 = 0x2545F491
-            let count = Int((width * height) / 520)
-            for _ in 0..<count {
-                seed ^= seed << 13
-                seed ^= seed >> 7
-                seed ^= seed << 17
-                let rx = CGFloat(seed % 10000) / 10000 * width
-                seed ^= seed << 13
-                seed ^= seed >> 7
-                seed ^= seed << 17
-                let ry = CGFloat(seed % 10000) / 10000 * height
-                seed ^= seed << 13
-                seed ^= seed >> 7
-                seed ^= seed << 17
-                let r = 0.7 + CGFloat(seed % 1000) / 1000 * 1.6
-                ctx.fillEllipse(in: CGRect(x: rx - r, y: ry - r, width: r * 2, height: r * 2))
+            // 颗粒质感：逐像素的噪点层，深浅随机、大部分像素保持透明，
+            // 叠在底色上就是一整片哑光颗粒，而不是一颗颗可数的小点。
+            if let noise = noiseImage(width: width, height: height, isDark: palette.bg.luminance < 0.35) {
+                ctx.saveGState()
+                // 关掉插值，放大渲染时颗粒保持锐利，不会被抹成一片灰
+                ctx.interpolationQuality = .none
+                ctx.draw(noise, in: CGRect(x: 0, y: 0, width: width, height: height))
+                ctx.restoreGState()
             }
 
         case .stripes:
@@ -121,6 +114,87 @@ enum Backgrounds {
         case .solid:
             break
         }
+    }
+
+    // 颗粒质感的参数：覆盖率（有多少像素带颗粒）、最深一档的透明度。
+    private static let grainCoverage: CGFloat = 0.60
+    private static let grainAlpha: CGFloat = 0.26
+
+    /// 噪点图按卡片尺寸生成后缓存（浅底、深底各留一张），避免每次重绘都重新算一遍。
+    private static var noiseCache: [String: (size: CGSize, image: CGImage)] = [:]
+
+    private static func noiseImage(width: CGFloat, height: CGFloat, isDark: Bool) -> CGImage? {
+        let pixelWidth = Int(width)
+        let pixelHeight = Int(height)
+        let key = isDark ? "dark" : "light"
+        if let cached = noiseCache[key],
+           cached.size == CGSize(width: width, height: height) {
+            return cached.image
+        }
+
+        guard pixelWidth > 0, pixelHeight > 0,
+              let space = CGColorSpace(name: CGColorSpace.sRGB),
+              let buffer = CGContext(
+                  data: nil,
+                  width: pixelWidth,
+                  height: pixelHeight,
+                  bitsPerComponent: 8,
+                  bytesPerRow: pixelWidth * 4,
+                  space: space,
+                  bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ),
+              let raw = buffer.data
+        else { return nil }
+
+        let pixels = raw.assumingMemoryBound(to: UInt8.self)
+        var seed: UInt64 = 0x9E3779B97F4A7C15
+        func random() -> CGFloat {
+            seed ^= seed << 13
+            seed ^= seed >> 7
+            seed ^= seed << 17
+            return CGFloat(seed % 100_000) / 100_000
+        }
+
+        for index in 0..<(pixelWidth * pixelHeight) {
+            let offset = index * 4
+            // 大多数像素留空，只有一部分盖上一层浅浅的颗粒
+            guard random() < grainCoverage else {
+                pixels[offset] = 0
+                pixels[offset + 1] = 0
+                pixels[offset + 2] = 0
+                pixels[offset + 3] = 0
+                continue
+            }
+            // 平方分布：浅颗粒多、深颗粒少，看起来才像纸的纹理
+            let alpha = grainAlpha * random() * random()
+            let alphaByte = UInt8(alpha * 255)
+            let isLightSpec = isDark ? random() < 0.55 : random() < 0.35
+            // premultipliedLast：颜色要先乘上透明度
+            let value = isLightSpec ? alphaByte : 0
+            pixels[offset] = value
+            pixels[offset + 1] = value
+            pixels[offset + 2] = value
+            pixels[offset + 3] = alphaByte
+        }
+
+        guard let image = buffer.makeImage() else { return nil }
+        noiseCache[key] = (CGSize(width: width, height: height), image)
+        return image
+    }
+
+    /// 把 other 按比例混进 base，得到一层不透明的新颜色。
+    private static func blend(_ base: UIColor, with other: UIColor, amount: CGFloat) -> UIColor {
+        var br: CGFloat = 0, bg: CGFloat = 0, bb: CGFloat = 0, ba: CGFloat = 0
+        var or: CGFloat = 0, og: CGFloat = 0, ob: CGFloat = 0, oa: CGFloat = 0
+        base.getRed(&br, green: &bg, blue: &bb, alpha: &ba)
+        other.getRed(&or, green: &og, blue: &ob, alpha: &oa)
+        let t = min(max(amount, 0), 1)
+        return UIColor(
+            red: br + (or - br) * t,
+            green: bg + (og - bg) * t,
+            blue: bb + (ob - bb) * t,
+            alpha: 1
+        )
     }
 }
 

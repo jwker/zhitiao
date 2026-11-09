@@ -17,7 +17,7 @@ enum BackgroundType: String, CaseIterable, Identifiable {
         case .ruled: return "横线稿纸"
         case .dots: return "点阵"
         case .light: return "光束"
-        case .grain: return "颗粒纸感"
+        case .grain: return "颗粒质感"
         case .stripes: return "斜纹"
         }
     }
