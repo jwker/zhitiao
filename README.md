@@ -80,7 +80,7 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 | `MODEL_MOCK` | 调试模式开关（`true` = 打开） |
 | `MODEL_IMAGE_*` | 插画模型三个字段 |
 
-**区别**：`.env` 是构建期常量，改完要重启 dev server；App 里是运行期可改，存 `UserDefaults`，不进代码库、不进 iCloud，也不随安装包分发。
+**区别**：`.env` 是构建期常量，改完要重启 dev server；App 里是运行期可改，存 `UserDefaults`，不进代码库，也不随安装包分发。
 
 模型只做两件事：挑强调词、给插画主体。返回：
 
@@ -95,7 +95,7 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 
 ## 数据
 
-- 纸条列表用 `NSUbiquitousKeyValueStore` 同步（整份列表是一段 JSON），iCloud 不可用时自动退回 `UserDefaults`。
+- 纸条列表存在本机 `UserDefaults`（整份列表是一段 JSON）。**不同步、不上云**：之前用的 iCloud 键值存储已移除，删掉 App 数据就没了。
 - 每张纸条带自己的卡片设置（背景、对齐、元素、强调样式、字体、配色）。
 - 老版本只存了一条正文，启动时会自动搬成第一条纸条。
 - 空纸条不会被保存（退出时删掉）。
@@ -108,7 +108,7 @@ Zhitiao/
 ├─ App/            界面：ContentView、ListView、CardScreen、CardTabBar、OptionsPanel、FullPreview、Controls、SettingsSheet、WrapRow
 ├─ Core/           排版引擎：Renderer、Drawing（背景/元素/强调）、Illustrations（18 个简笔画）、CardSpec、Document、TextSplit
 ├─ AI/             AIClient（只挑强调词和插画主体）、IllustrationGenerator（图像模型，可选）
-├─ Store/          AppModel（状态）、DocumentStore（iCloud）、CardSnapshot（可存储快照）
+├─ Store/          AppModel（状态）、DocumentStore（本机存储）、CardSnapshot（可存储快照）
 design/            改版设计稿（HTML，浏览器打开）
 .ai/               AI 产物（不进版本库，见 .ai/README.md）
 ```

@@ -1,7 +1,7 @@
 import Foundation
 import UIKit
 
-/// 卡片参数的可存储快照（只存原始值，存 iCloud / UserDefaults）。
+/// 卡片参数的可存储快照（只存原始值，存本机 UserDefaults）。
 struct CardSnapshot: Codable, Equatable {
 
     /// 数据结构版本。旧数据没有这个字段，读到 1，用来做一次性迁移。

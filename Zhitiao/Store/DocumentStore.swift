@@ -2,13 +2,13 @@ import Foundation
 
 /// 数据层：纸条列表 + 模型配置。
 ///
-/// 纸条列表优先写 iCloud（`NSUbiquitousKeyValueStore`）；没有 iCloud 权限或未登录时
-/// 自动退回本机 `UserDefaults`，功能不受影响。
+/// 全部存在本机 `UserDefaults`（整份列表是一段 JSON），不联网、不同步。
+/// 之前用的 iCloud 键值存储（`NSUbiquitousKeyValueStore`）已经移除：它需要付费开发者账号的
+/// iCloud 能力，而真机上访问它会拖住启动路径。数据只在本机，删掉 App 就没有了。
 final class DocumentStore {
 
     static let shared = DocumentStore()
 
-    private let cloud = NSUbiquitousKeyValueStore.default
     private let defaults = UserDefaults.standard
 
     private enum Key {
@@ -20,18 +20,12 @@ final class DocumentStore {
         static let legacySpec = "zhitiao.spec"
     }
 
-    private init() {
-        cloud.synchronize()
-    }
+    private init() {}
 
     // MARK: - 纸条列表
 
     var documents: [Document] {
         get {
-            if let data = cloud.data(forKey: Key.documents),
-               let list = try? JSONDecoder().decode([Document].self, from: data) {
-                return list
-            }
             if let data = defaults.data(forKey: Key.documents),
                let list = try? JSONDecoder().decode([Document].self, from: data) {
                 return list
@@ -41,8 +35,6 @@ final class DocumentStore {
         set {
             guard let data = try? JSONEncoder().encode(newValue) else { return }
             defaults.set(data, forKey: Key.documents)
-            cloud.set(data, forKey: Key.documents)
-            cloud.synchronize()
         }
     }
 
@@ -98,13 +90,5 @@ final class DocumentStore {
     static func resetLegacy() {
         UserDefaults.standard.removeObject(forKey: "zhitiao.text")
         UserDefaults.standard.removeObject(forKey: "zhitiao.spec")
-        NSUbiquitousKeyValueStore.default.removeObject(forKey: "zhitiao.text")
-        NSUbiquitousKeyValueStore.default.removeObject(forKey: "zhitiao.spec")
-        NSUbiquitousKeyValueStore.default.synchronize()
-    }
-
-    /// iCloud 是否可用（已登录且有权限）
-    var isCloudAvailable: Bool {
-        FileManager.default.ubiquityIdentityToken != nil
     }
 }

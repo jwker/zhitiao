@@ -3,7 +3,7 @@ import SwiftUI
 /// 设置：文本模型 + 插画模型。
 ///
 /// H5 版的地址、Key、模型名放在 `.env.local` 里由 Vite 注入；原生 App 没有构建期注入这一层，
-/// 改成在 App 内填写，存本机 UserDefaults（不进代码库、不进 iCloud）。
+/// 改成在 App 内填写，存本机 UserDefaults（不进代码库、不随安装包分发）。
 struct SettingsSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
