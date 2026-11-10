@@ -109,11 +109,25 @@ Zhitiao/
 ├─ Core/           排版引擎：Renderer、Drawing（背景/元素/强调）、Illustrations（18 个简笔画）、CardSpec、Document、TextSplit
 ├─ AI/             AIClient（只挑强调词和插画主体）、IllustrationGenerator（图像模型，可选）
 ├─ Store/          AppModel（状态）、DocumentStore（本机存储）、CardSnapshot（可存储快照）
-design/            改版设计稿（HTML，浏览器打开）
-.ai/               AI 产物（不进版本库，见 .ai/README.md）
+.ai/               AI 产物与设计稿（不进版本库，见 .ai/README.md）
 ```
 
 引擎不依赖 SwiftUI，纯 Core Graphics，方便单独测。
+
+## App 图标
+
+图标是 1024×1024 的单张 PNG，铺在 `Zhitiao/Assets.xcassets/AppIcon.appiconset/icon-1024.png`：满版橙色 `#E04B00` + 白色黑体「纸」。
+iOS 自己套圆角遮罩，所以图里不画圆角。
+
+图是用 `.ai/design/make-app-icon.swift` 生成的。这个脚本放在 `.ai/` 里，跟设计稿一样不进版本库，只在本机有。
+字形用 `PingFang SC Semibold`——和卡片渲染里「黑体」用的是同一款字（`PingFangSC-Semibold`）：
+
+```bash
+swift .ai/design/make-app-icon.swift "PingFang SC Semibold" \
+  Zhitiao/Assets.xcassets/AppIcon.appiconset/icon-1024.png
+```
+
+脚本的第一个参数也可以写字体文件路径（`.ttf` / `.ttc`），用来换别的字形。换字或改配色改脚本里的常量再重跑。
 
 ## 排版算法
 
@@ -133,7 +147,7 @@ design/            改版设计稿（HTML，浏览器打开）
 - 列表不支持删除（暂定）。
 - 插画默认用内置 18 个简笔画；接图像模型需要另外配置，且图片要经代理取回才能导出。
 - 楷体在部分系统上会回落到宋体。
-- 没有 App 图标和启动图。
+- 没有自定义启动图：用的是系统生成的默认启动屏。
 
 ## 调试
 
