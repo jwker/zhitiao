@@ -28,7 +28,10 @@ struct SettingsSheet: View {
         NavigationStack {
             Form {
                 Section {
-                    LabeledContent("云环境", value: cloudEnvironment)
+                    // 生产环境不用显示：App Store 的用户只有生产这一种
+                    if cloudEnvironment == "开发" {
+                        LabeledContent("云环境", value: cloudEnvironment)
+                    }
 
                     LabeledContent("账号") {
                         HStack(spacing: 6) {
