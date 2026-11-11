@@ -25,6 +25,10 @@ final class AppModel: ObservableObject {
     @Published var illustrations: [Illustration] = []
     @Published var isBusy = false
     @Published var status = ""
+
+    /// 底部提示条的内容，自己消失。放在这里是因为不止一个页面要弹（导出、复制）。
+    @Published var toast: String?
+    private var toastTask: Task<Void, Never>?
     @Published var config: AIClient.Config
     @Published var imageConfig: IllustrationGenerator.Config
 
@@ -551,6 +555,21 @@ final class AppModel: ObservableObject {
         guard let doc = current else { return nil }
         let spec = doc.makeSpec()
         return Renderer.render(spec: spec, lines: spec.lines, scale: 2)
+    }
+
+    // MARK: - 提示
+
+    /// 弹一条底部提示，1.8 秒后自己消失
+    func showToast(_ text: String) {
+        toastTask?.cancel()
+        withAnimation(.easeOut(duration: 0.18)) { toast = text }
+        toastTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 1_800_000_000)
+            guard !Task.isCancelled else { return }
+            await MainActor.run {
+                withAnimation(.easeIn(duration: 0.18)) { self?.toast = nil }
+            }
+        }
     }
 
     // MARK: - 同步支持

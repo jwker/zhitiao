@@ -44,6 +44,17 @@ struct CardScreen: View {
         }
     }
 
+    /// 复制正文全文到剪贴板
+    private func copyText() {
+        let value = model.current?.text ?? ""
+        guard !value.isEmpty else {
+            model.showToast("没有可复制的文字")
+            return
+        }
+        UIPasteboard.general.string = value
+        model.showToast("已复制")
+    }
+
     private func charCount(_ text: String) -> Int {
         text.components(separatedBy: .whitespacesAndNewlines).joined().count
     }
@@ -201,7 +212,18 @@ struct CardScreen: View {
 
                 Spacer()
 
-                // 键盘弹起时才出现，点了只收键盘，不离开编辑页
+                // 复制正文全文
+                Button {
+                    copyText()
+                } label: {
+                    Image(systemName: "doc.on.doc")
+                        .font(.system(size: 16, weight: .regular))
+                        .foregroundStyle(Theme.muted)
+                }
+                .buttonStyle(.plain)
+                .accessibilityLabel("复制文字")
+
+                // 收起键盘：只在键盘弹起时才有意义
                 if editorFocused {
                     Button {
                         editorFocused = false
