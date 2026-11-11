@@ -1,3 +1,4 @@
+import CloudKit
 import Foundation
 import SwiftUI
 
@@ -11,7 +12,7 @@ final class AppModel: ObservableObject {
     }
 
     @Published var screen: Screen = .list
-    @Published var documents: [Document] = []
+    @Published var documents: [SyncedDocument] = []
     @Published var currentID: UUID?
     @Published var isEditing = false
     @Published var showFullPreview = false
@@ -29,37 +30,45 @@ final class AppModel: ObservableObject {
 
     private let store = DocumentStore.shared
     private var renderTask: Task<Void, Never>?
+    private var saveTask: Task<Void, Never>?
     /// 调试参数进来的会话不写存储，避免污染真实数据
     private let isDebugSession: Bool
 
-    var current: Document? {
-        documents.first { $0.id == currentID }
+    var current: SyncedDocument? {
+        documents.first { $0.id == currentID && !$0.isDeleted }
     }
 
-    var sortedDocuments: [Document] {
-        documents.sorted { $0.updatedAt > $1.updatedAt }
+    /// 列表显示用：过滤掉墓碑，最近修改的排前面
+    var sortedDocuments: [SyncedDocument] {
+        documents
+            .filter { !$0.isDeleted }
+            .sorted { $0.updatedAt > $1.updatedAt }
     }
 
     init() {
         let arguments = ProcessInfo.processInfo.arguments
-        let hasDebugArg = ["--demo", "--new", "--settings", "--dump-icons"].contains { arguments.contains($0) }
+
+        // 调试用：--sync-off / --sync-on 直接改 App 内同步开关
+        if arguments.contains("--sync-off") { SyncSettings.isEnabled = false }
+        if arguments.contains("--sync-on") { SyncSettings.isEnabled = true }
+
+        let hasDebugArg = ["--demo", "--new", "--settings", "--dump-icons", "--delete-first", "--sync-now", "--simulate-stale", "--merge-selftest", "--dump-conflicts", "--simulate-conflict", "--simulate-delete-conflict", "--show-conflicts"].contains { arguments.contains($0) }
+        let hasResolveArg = arguments.contains { $0.hasPrefix("--resolve=") }
         // --persist 让调试会话也写存储，用来验证「返回列表后还在不在」
         isDebugSession = hasDebugArg && !arguments.contains("--persist")
 
         if arguments.contains("--reset") {
-            store.documents = []
-            store.config = .default
-            store.imageConfig = .default
-            DocumentStore.resetLegacy()
+            store.reset()
+            SyncEngine.shared.resetLocalState()
         }
 
-        documents = store.documents
+        documents = store.loadDocuments()
         config = store.config
         imageConfig = store.imageConfig
 
         // 调试用：--demo 直接打开示例纸条的卡片页
         if arguments.contains("--demo") {
-            let doc = Document(text: AppModel.sample)
+            let doc = SyncedDocument(document: Document(text: AppModel.sample))
             documents.insert(doc, at: 0)
             currentID = doc.id
             screen = .card
@@ -173,9 +182,124 @@ final class AppModel: ObservableObject {
             }
         }
 
+        // 调试用：--icloud-status 查一次账号状态；--icloud-probe 再跑一次容器读写自检
+        if arguments.contains("--icloud-status") || arguments.contains("--icloud-probe") {
+            let shouldProbe = arguments.contains("--icloud-probe")
+            Task { [weak self] in
+                await CloudAccount.shared.refresh()
+                let account = CloudAccount.shared.state
+                var lines = ["账号：\(account.title)"]
+                if let detail = account.detail {
+                    lines.append(detail)
+                }
+                if shouldProbe {
+                    lines.append("自检：\(await CloudProbe.run())")
+                }
+                let text = lines.joined(separator: "\n")
+                print("[iCloud]\n\(text)")
+                self?.writeDebugFile("icloud-status.txt", text: text)
+            }
+        }
+
+        // 调试用：--simulate-synced 给第一条纸条标一个 changeTag，用来测试墓碑路径
+        if arguments.contains("--simulate-synced"), let index = documents.indices.first {
+            documents[index].changeTag = "debug-tag"
+            documents[index].isDirty = false
+        }
+
+        // 调试用：--delete-first 删掉列表第一条，用来验证墓碑
+        if arguments.contains("--delete-first"), let first = sortedDocuments.first {
+            delete(first)
+        }
+
         // 调试用：--open 直接打开列表里的第一条纸条
         if arguments.contains("--open"), let first = sortedDocuments.first {
             open(first)
+        }
+
+        // 调试用：--dump-store 把列表状态（含墓碑）写到 Documents/store.txt
+        if arguments.contains("--dump-store") {
+            let lines = documents.map { doc in
+                let deleted = doc.deletedAt.map { "deleted@\(Int($0.timeIntervalSince1970))" } ?? "-"
+                return "\(doc.id.uuidString.prefix(8))  dirty=\(doc.isDirty)  tag=\(doc.changeTag ?? "-")  \(deleted)  \(doc.title)"
+            }
+            writeDebugFile("store.txt", text: (["合计 \(documents.count)"] + lines).joined(separator: "\n"))
+        }
+
+        SyncEngine.shared.attach(model: self)
+
+        // 调试用：--sync-now 立刻同步一次；--sync-dump 只写状态
+        if arguments.contains("--sync-now") {
+            Task { [weak self] in
+                await SyncEngine.shared.syncNow()
+                self?.writeSyncDump()
+            }
+        } else if arguments.contains("--sync-dump") {
+            writeSyncDump()
+        }
+
+        // 调试用：--sync-reset 清游标和冲突，不动纸条
+        if arguments.contains("--sync-reset") {
+            SyncEngine.shared.resetLocalState()
+        }
+
+        // 调试用：--simulate-stale 把第一条的变更标签改坏，验证服务端冲突分支
+        if arguments.contains("--simulate-stale"), let index = documents.indices.first {
+            documents[index].changeTag = "stale-tag"
+            documents[index].isDirty = true
+        }
+
+        #if DEBUG
+        // 调试用：--simulate-delete-conflict 制造一次删除冲突（会改服务端记录）
+        if arguments.contains("--simulate-delete-conflict") {
+            Task {
+                await SyncEngine.shared.simulateDeleteConflict()
+                self.writeConflictDump()
+                self.writeSyncDump()
+            }
+        }
+
+        // 调试用：--simulate-conflict 制造一次真实冲突（会改服务端记录）
+        if arguments.contains("--simulate-conflict") {
+            Task {
+                await SyncEngine.shared.simulateConflict()
+                self.writeConflictDump()
+                self.writeSyncDump()
+            }
+        }
+
+        #endif
+
+        // 调试用：--dump-conflicts 把冲突队列写到 Documents/conflicts.txt
+        if arguments.contains("--dump-conflicts") {
+            writeConflictDump()
+        }
+
+        // 调试用：--resolve=keepLocal|keepServer|keepBoth 处理第一条冲突
+        if let resolveArg = arguments.first(where: { $0.hasPrefix("--resolve=") }) {
+            let name = String(resolveArg.dropFirst("--resolve=".count))
+            var resolution: ConflictResolution?
+            switch name {
+            case "keepLocal": resolution = .keepLocal
+            case "keepServer": resolution = .keepServer
+            case "keepBoth": resolution = .keepBoth
+            default: resolution = nil
+            }
+            if let resolution, let conflict = SyncEngine.shared.conflicts.first {
+                SyncEngine.shared.resolve(conflict, as: resolution)
+                writeConflictDump()
+                writeSyncDump()
+            }
+        }
+
+        // 调试用：--merge-selftest 跑合并用例
+        if arguments.contains("--merge-selftest") {
+            writeDebugFile("merge-selftest.txt", text: MergeSelfTest.run())
+        }
+
+        // 正常启动先拉一次远端；调试会话和 --reset 不自动同步
+        if !isDebugSession && !arguments.contains("--reset") && !arguments.contains("--sync-now") && !arguments.contains("--simulate-conflict") && !arguments.contains("--simulate-delete-conflict") && !hasResolveArg {
+            Task { await SyncEngine.shared.syncNow() }
         }
 
         // 调试用：--dump-emoji 把 emoji 目录的分组统计写到 Documents
@@ -202,7 +326,7 @@ final class AppModel: ObservableObject {
 
     /// 新建：插一条空纸条，直接进卡片页并开始编辑
     func createDocument() {
-        let doc = Document(text: "")
+        let doc = SyncedDocument(document: Document(text: ""))
         documents.insert(doc, at: 0)
         currentID = doc.id
         illustrations = []
@@ -211,24 +335,33 @@ final class AppModel: ObservableObject {
         isEditing = true
         render()
         persist()
+        requestSync()
     }
 
-    /// 打开已有纸条
-    func open(_ document: Document) {
+    /// 打开已有纸条：直接进文字编辑页，但不自动聚焦（键盘不弹）
+    func open(_ document: SyncedDocument) {
         currentID = document.id
-        isEditing = false
+        isEditing = true
         illustrations = document.makeSpec().illustration.map { [$0] } ?? []
         status = ""
         screen = .card
         render()
     }
 
+    /// 卡片页的返回：编辑中回列表，选项页回编辑页
+    func back() {
+        if isEditing {
+            backToList()
+        } else {
+            beginEditing()
+        }
+    }
+
     func backToList() {
         discardCurrentIfEmpty()
-        commitOrder()
         isEditing = false
         screen = .list
-        persist()
+        persist(immediately: true)
     }
 
     func beginEditing() {
@@ -243,9 +376,8 @@ final class AppModel: ObservableObject {
             screen = .list
             return
         }
-        commitOrder()
         render()
-        persist()
+        persist(immediately: true)
     }
 
     // MARK: - 修改
@@ -255,7 +387,10 @@ final class AppModel: ObservableObject {
         guard let index = documents.firstIndex(where: { $0.id == currentID }) else { return }
         documents[index].text = text
         documents[index].updatedAt = Date()
+        documents[index].isDirty = true
         scheduleRender()
+        persist()
+        requestSync()
     }
 
     /// 改卡片设置
@@ -264,9 +399,11 @@ final class AppModel: ObservableObject {
         var spec = documents[index].makeSpec()
         mutate(&spec)
         documents[index].snapshot = CardSnapshot(spec: spec)
+        documents[index].isDirty = true
         // 拖动滑杆会连发很多事件，用 60ms 节流，避免堆积重绘
         scheduleRender()
         persist()
+        requestSync()
     }
 
     /// Emoji 面板改的是整组槽位：传进来的顺序就是卡片上的顺序，空槽位已经去掉。
@@ -416,27 +553,156 @@ final class AppModel: ObservableObject {
         return Renderer.render(spec: spec, lines: spec.lines, scale: 2)
     }
 
-    // MARK: - 存储
+    // MARK: - 同步支持
 
-    /// 最近修改的排前面
-    private func commitOrder() {
-        documents = sortedDocuments
+    func document(id: UUID) -> SyncedDocument? {
+        documents.first { $0.id == id }
     }
 
-    func persist() {
+    /// 用服务端版本替换本地。当前正在看的纸条要重绘。
+    func replace(_ document: SyncedDocument) {
+        guard let index = documents.firstIndex(where: { $0.id == document.id }) else { return }
+        documents[index] = document
+        if document.id == currentID {
+            render()
+        }
+    }
+
+    /// 远端新建的纸条
+    func insert(_ document: SyncedDocument) {
+        documents.append(document)
+    }
+
+    /// 远端记录被物理删除
+    func removeDocument(id: UUID) {
+        documents.removeAll { $0.id == id }
+        if currentID == id {
+            currentID = nil
+            isEditing = false
+            screen = .list
+        }
+    }
+
+    /// 上传成功：记下新的变更标签和系统字段，基线更新成刚传上去的内容
+    func markUploaded(id: UUID, record: CKRecord) {
+        guard let index = documents.firstIndex(where: { $0.id == id }) else { return }
+        documents[index].changeTag = record.recordChangeTag
+        documents[index].recordSystemFields = SyncedDocument.systemFields(of: record)
+        documents[index].isDirty = false
+        documents[index].baseline = DocumentBaseline(
+            text: documents[index].text,
+            snapshot: documents[index].snapshot
+        )
+    }
+
+    /// 本地改完安排一次同步。调试会话不同步，避免污染真实数据。
+    private func requestSync() {
         guard !isDebugSession else { return }
-        store.documents = documents
+        SyncEngine.shared.schedule()
+    }
+
+    // MARK: - 存储
+
+    /// 保存纸条列表。连续操作（拖滑杆、打字）用 300ms 防抖；
+    /// 重要节点（返回列表、删除、退到后台）传 `immediately: true` 立即写。
+    func persist(immediately: Bool = false) {
+        guard !isDebugSession else { return }
+
+        saveTask?.cancel()
+        if immediately {
+            store.saveDocuments(documents)
+            return
+        }
+
+        saveTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled, let self else { return }
+            self.store.saveDocuments(self.documents)
+        }
+    }
+
+    /// 设置页改完模型配置后调用。配置只在本机，不跟着纸条走。
+    func persistConfig() {
         store.config = config
         store.imageConfig = imageConfig
+    }
+
+    /// 退到后台或退出前，把还没落盘的内容写掉
+    func flush() {
+        saveTask?.cancel()
+        persist(immediately: true)
+    }
+
+    /// 删除。已经同步过的留墓碑，从没同步过的直接从列表里移除。
+    func delete(_ document: SyncedDocument) {
+        guard let index = documents.firstIndex(where: { $0.id == document.id }) else { return }
+
+        if documents[index].changeTag == nil {
+            documents.remove(at: index)
+        } else {
+            documents[index].deletedAt = Date()
+            documents[index].isDirty = true
+        }
+
+        if currentID == document.id {
+            currentID = nil
+            isEditing = false
+            screen = .list
+        }
+        persist(immediately: true)
+        requestSync()
+    }
+
+    /// 调试参数把结果写到 Documents，方便直接从模拟器或真机里取出来看。
+    private func writeDebugFile(_ name: String, text: String) {
+        let url = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(name)
+        try? text.write(to: url, atomically: true, encoding: .utf8)
+    }
+
+    /// 同步状态快照
+    private func writeSyncDump() {
+        let engine = SyncEngine.shared
+        let tagged = documents.filter { $0.changeTag != nil }.count
+        let dirty = documents.filter { $0.isDirty }.count
+        let tombstones = documents.filter { $0.isDeleted }.count
+        let token = SyncCursorStore().load().changeToken == nil ? "无" : "有"
+        let last = engine.lastSyncedAt.map { ISO8601DateFormatter().string(from: $0) } ?? "-"
+        let environment = Bundle.main.object(forInfoDictionaryKey: "ZhitiaoCloudEnvironment") as? String ?? "-"
+
+        let text = """
+        云环境：\(environment)
+        状态：\(engine.status.title)
+        说明：\(engine.status.detail ?? "-")
+        上次同步：\(last)
+        纸条：\(documents.count) 条（已同步 \(tagged)，待上传 \(dirty)，墓碑 \(tombstones)）
+        冲突：\(engine.conflictCount)
+        游标：\(token)
+        推送订阅：\(SyncCursorStore().load().subscriptionReady ? "已建" : "未建")
+        """
+        writeDebugFile("sync.txt", text: text)
+    }
+
+    /// 冲突队列快照
+    private func writeConflictDump() {
+        let lines = SyncEngine.shared.conflicts.map { conflict in
+            "\(conflict.kind.rawValue)  文档=\(conflict.documentID.uuidString.prefix(8))  本机=\(conflict.localText.prefix(20))  服务端=\(conflict.serverText.prefix(20))"
+        }
+        writeDebugFile("conflicts.txt", text: (["合计 \(lines.count)"] + lines).joined(separator: "\n"))
     }
 
     /// 离开卡片页时把空纸条丢掉。不能在新建时就删——那时文字还没输进来。
     private func discardCurrentIfEmpty() {
         guard let index = documents.firstIndex(where: { $0.id == currentID }) else { return }
-        if documents[index].isEmpty {
+        guard documents[index].isEmpty else { return }
+
+        if documents[index].changeTag == nil {
             documents.remove(at: index)
-            currentID = nil
-            persist()
+        } else {
+            documents[index].deletedAt = Date()
+            documents[index].isDirty = true
         }
+        currentID = nil
+        persist(immediately: true)
     }
 }

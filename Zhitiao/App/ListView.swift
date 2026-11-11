@@ -3,9 +3,15 @@ import SwiftUI
 /// 首页：纸条列表。点一行进卡片页，右上角 ＋ 新建。
 struct ListView: View {
     @EnvironmentObject private var model: AppModel
+    @ObservedObject private var sync = SyncEngine.shared
+    @State private var showConflicts = ProcessInfo.processInfo.arguments.contains("--show-conflicts")
 
     var body: some View {
         VStack(spacing: 0) {
+            if sync.conflictCount > 0 {
+                conflictBanner
+            }
+
             if model.sortedDocuments.isEmpty {
                 emptyState
             } else {
@@ -19,6 +25,13 @@ struct ListView: View {
                         .buttonStyle(.plain)
                         .listRowInsets(EdgeInsets(top: 0, leading: 0, bottom: 0, trailing: 0))
                         .listRowSeparator(.hidden)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: true) {
+                            Button(role: .destructive) {
+                                model.delete(document)
+                            } label: {
+                                Label("删除", systemImage: "trash")
+                            }
+                        }
                     }
                 }
                 .listStyle(.plain)
@@ -27,9 +40,41 @@ struct ListView: View {
             }
         }
         .background(Theme.surface)
+        .sheet(isPresented: $showConflicts) {
+            ConflictSheet()
+                .environmentObject(model)
+        }
     }
 
-    private func row(_ document: Document) -> some View {
+    /// 列表顶部提示：有冲突没处理时出现，点开逐条选。
+    private var conflictBanner: some View {
+        Button {
+            showConflicts = true
+        } label: {
+            HStack(spacing: 10) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.accent)
+
+                Text("有 \(sync.conflictCount) 处冲突待处理")
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.ink)
+
+                Spacer(minLength: 8)
+
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 12, weight: .semibold))
+                    .foregroundStyle(Theme.muted)
+            }
+            .padding(.horizontal, 16)
+            .frame(height: 48)
+            .background(Theme.wash)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+    }
+
+    private func row(_ document: SyncedDocument) -> some View {
         HStack(alignment: .center, spacing: 12) {
             VStack(alignment: .leading, spacing: 3) {
                 Text(document.title)

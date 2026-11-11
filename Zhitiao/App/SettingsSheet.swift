@@ -7,6 +7,8 @@ import SwiftUI
 struct SettingsSheet: View {
     @EnvironmentObject private var model: AppModel
     @Environment(\.dismiss) private var dismiss
+    @ObservedObject private var account = CloudAccount.shared
+    @ObservedObject private var sync = SyncEngine.shared
 
     @State private var baseURL = ""
     @State private var apiKey = ""
@@ -26,10 +28,76 @@ struct SettingsSheet: View {
         NavigationStack {
             Form {
                 Section {
+                    LabeledContent("云环境", value: cloudEnvironment)
+
+                    LabeledContent("账号") {
+                        HStack(spacing: 6) {
+                            if account.isChecking {
+                                ProgressView().controlSize(.small)
+                            }
+                            Text(account.state.title)
+                        }
+                    }
+
+                    if let detail = account.state.detail {
+                        Text(detail)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    LabeledContent("同步") {
+                        HStack(spacing: 6) {
+                            if sync.isSyncing {
+                                ProgressView().controlSize(.small)
+                            }
+                            Text(sync.status.title)
+                        }
+                    }
+
+                    if let detail = sync.status.detail {
+                        Text(detail)
+                            .font(.system(size: 13))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if let last = sync.lastSyncedAt {
+                        LabeledContent("上次同步", value: last.formatted(date: .omitted, time: .standard))
+                    }
+
+                    if sync.conflictCount > 0 {
+                        LabeledContent("待处理冲突", value: "\(sync.conflictCount)")
+                    }
+
+                    Toggle("iCloud 同步", isOn: $sync.isEnabled)
+                        .disabled(!account.state.isAvailable)
+
+                    Button("立即同步") {
+                        Task { await sync.syncNow() }
+                    }
+                    .disabled(sync.isSyncing || !account.state.isAvailable)
+
+                    Button("重新检查") {
+                        Task { await account.refresh() }
+                    }
+                    .disabled(account.isChecking)
+                } header: {
+                    Text("iCloud")
+                } footer: {
+                    if account.state.isAvailable {
+                        Text("纸条会在登录同一 Apple ID 的设备之间同步。关掉同步后数据只留本机。")
+                    } else {
+                        Text("系统里的 iCloud 不可用，去「设置 → Apple 账户 → iCloud」打开后再回来。")
+                    }
+                }
+
+                Section {
                     LabeledContent("版本", value: Self.version)
                 } footer: {
-                    Text("纸条 · 把文字做成一张排版精美的图片")
+                    Text("纸条儿 · 把文字做成一张排版精美的图片")
                 }
+            }
+            .onAppear {
+                Task { await account.refresh() }
             }
             .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
@@ -38,6 +106,16 @@ struct SettingsSheet: View {
                     Button("完成") { dismiss() }
                 }
             }
+        }
+    }
+
+    /// 构建时写进 Info.plist 的容器环境，用来确认当前跑的是开发还是生产
+    private var cloudEnvironment: String {
+        let value = Bundle.main.object(forInfoDictionaryKey: "ZhitiaoCloudEnvironment") as? String ?? "-"
+        switch value {
+        case "Development": return "开发"
+        case "Production": return "生产"
+        default: return value
         }
     }
 
@@ -152,7 +230,7 @@ struct SettingsSheet: View {
         model.imageConfig.apiKey = imageKey.trimmingCharacters(in: .whitespaces)
         model.imageConfig.model = imageModel.trimmingCharacters(in: .whitespaces)
 
-        model.persist()
+        model.persistConfig()
     }
 
     private func test() async {

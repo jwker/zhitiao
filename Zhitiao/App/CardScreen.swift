@@ -33,10 +33,11 @@ struct CardScreen: View {
         }
         .background(Theme.surface)
         .onAppear {
-            if model.isEditing { focusEditor() }
-        }
-        .onChange(of: model.isEditing) { _, editing in
-            if editing { focusEditor() }
+            // 调试用：--focus 打开就聚焦，方便截图键盘相关界面
+            guard ProcessInfo.processInfo.arguments.contains("--focus") else { return }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) {
+                editorFocused = true
+            }
         }
         .fullScreenCover(isPresented: $model.showFullPreview) {
             FullPreview(image: model.exportPreview())
@@ -45,12 +46,6 @@ struct CardScreen: View {
 
     private func charCount(_ text: String) -> Int {
         text.components(separatedBy: .whitespacesAndNewlines).joined().count
-    }
-
-    private func focusEditor() {
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) {
-            editorFocused = true
-        }
     }
 
     // MARK: - 选项模式
@@ -128,10 +123,11 @@ struct CardScreen: View {
     // MARK: - 编辑模式
 
     private var peekStrip: some View {
-        Button {
-            model.showFullPreview = true
-        } label: {
-            HStack(spacing: 12) {
+        HStack(spacing: 12) {
+            // 点迷你预览看大图
+            Button {
+                model.showFullPreview = true
+            } label: {
                 Group {
                     if let peek = model.peek {
                         // 长卡片只露上面 3:4 那一段，缩略图尺寸保持稳定
@@ -148,31 +144,43 @@ struct CardScreen: View {
                             .frame(width: 63, height: 84)
                     }
                 }
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel("看大图")
 
-                VStack(alignment: .leading, spacing: 3) {
-                    Text("实时预览")
-                        .font(.system(size: 13))
-                        .foregroundStyle(Theme.muted)
-                    Text(model.styleSummary)
-                        .font(.system(size: 14))
-                        .foregroundStyle(Theme.ink)
-                        .lineLimit(1)
-                }
+            VStack(alignment: .leading, spacing: 3) {
+                Text("实时预览")
+                    .font(.system(size: 13))
+                    .foregroundStyle(Theme.muted)
+                Text(model.styleSummary)
+                    .font(.system(size: 14))
+                    .foregroundStyle(Theme.ink)
+                    .lineLimit(1)
+            }
 
-                Spacer(minLength: 8)
+            Spacer(minLength: 8)
 
+            // 结束编辑，进卡片选项页
+            Button {
+                model.endEditing()
+            } label: {
                 HStack(spacing: 3) {
-                    Text("看大图")
-                    Image(systemName: "chevron.right").font(.system(size: 10, weight: .semibold))
+                    Text("卡片")
+                    Image(systemName: "chevron.right")
+                        .font(.system(size: 10, weight: .semibold))
                 }
                 .font(.system(size: 13))
                 .foregroundStyle(Theme.muted)
+                .padding(.vertical, 8)
+                .padding(.leading, 8)
+                .contentShape(Rectangle())
             }
-            .padding(.horizontal, 16)
-            .padding(.vertical, 12)
-            .contentShape(Rectangle())
+            .buttonStyle(.plain)
+            .accessibilityLabel("卡片设置")
         }
-        .buttonStyle(.plain)
+        .padding(.horizontal, 16)
+        .padding(.vertical, 12)
         .background(Theme.bg)
         .overlay(alignment: .bottom) {
             Rectangle().fill(Theme.line).frame(height: 1)
@@ -186,11 +194,26 @@ struct CardScreen: View {
 
     private var editor: some View {
         VStack(alignment: .leading, spacing: 8) {
-            HStack {
+            HStack(spacing: 12) {
                 Text("正文")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
+
                 Spacer()
+
+                // 键盘弹起时才出现，点了只收键盘，不离开编辑页
+                if editorFocused {
+                    Button {
+                        editorFocused = false
+                    } label: {
+                        Image(systemName: "keyboard.chevron.compact.down")
+                            .font(.system(size: 16, weight: .regular))
+                            .foregroundStyle(Theme.muted)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("收起键盘")
+                }
+
                 Text("\(model.currentLayoutLineCount) 行 · \(charCount(text)) 字")
                     .font(.system(size: 13))
                     .foregroundStyle(Theme.muted)
@@ -200,6 +223,7 @@ struct CardScreen: View {
                 .focused($editorFocused)
                 .font(.system(size: 17))
                 .lineSpacing(15)
+                .scrollDismissesKeyboard(.interactively)
                 .foregroundStyle(Theme.ink)
                 .scrollContentBackground(.hidden)
                 .background(Theme.surface)

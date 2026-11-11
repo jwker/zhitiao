@@ -84,7 +84,7 @@ struct ContentView: View {
         HStack(spacing: 12) {
             if model.screen == .card {
                 Button {
-                    model.backToList()
+                    model.back()
                 } label: {
                     Image(systemName: "chevron.left")
                         .font(.system(size: 17, weight: .medium))
@@ -96,7 +96,7 @@ struct ContentView: View {
                     .fill(Theme.accent)
                     .frame(width: 18, height: 18)
 
-                Text("纸条")
+                Text("纸条儿")
                     .font(.system(size: 17))
                     .foregroundStyle(Theme.ink)
             }
@@ -126,15 +126,7 @@ struct ContentView: View {
                 .accessibilityLabel("新建纸条")
 
             case .card:
-                if model.isEditing {
-                    Button {
-                        model.endEditing()
-                    } label: {
-                        Text("完成")
-                            .font(.system(size: 15))
-                            .foregroundStyle(Theme.ink)
-                    }
-                } else {
+                if !model.isEditing {
                     Button(action: export) {
                         Text("导出")
                             .font(.system(size: 14))

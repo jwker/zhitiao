@@ -3,12 +3,27 @@ import SwiftUI
 @main
 struct ZhitiaoApp: App {
     @StateObject private var model = AppModel()
+    @UIApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some Scene {
         WindowGroup {
             ContentView()
                 .environmentObject(model)
                 .tint(Theme.accent)
+                .onChange(of: scenePhase) { _, phase in
+                    switch phase {
+                    case .active:
+                        // 回到前台拉一次，兜住静默推送丢失的情况
+                        Task { await SyncEngine.shared.syncIfNeeded() }
+                    case .background:
+                        // 退到后台前把防抖队列里没写的内容落盘，并排一次后台刷新
+                        model.flush()
+                        BackgroundSync.schedule()
+                    default:
+                        break
+                    }
+                }
         }
     }
 }

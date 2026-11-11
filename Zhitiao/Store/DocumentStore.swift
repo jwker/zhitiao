@@ -2,9 +2,11 @@ import Foundation
 
 /// 数据层：纸条列表 + 模型配置。
 ///
-/// 全部存在本机 `UserDefaults`（整份列表是一段 JSON），不联网、不同步。
-/// 之前用的 iCloud 键值存储（`NSUbiquitousKeyValueStore`）已经移除：它需要付费开发者账号的
-/// iCloud 能力，而真机上访问它会拖住启动路径。数据只在本机，删掉 App 就没有了。
+/// 纸条存在 `Application Support/Zhitiao/documents.json`，整份列表一个文件，写入用原子写，
+/// 避免写到一半被杀进程留下半个文件。模型配置仍然放本机 `UserDefaults`：它只有几 KB，
+/// 而且永远不会同步。
+///
+/// 两者都不联网。iCloud 同步在开发中，目前只查账号状态。
 final class DocumentStore {
 
     static let shared = DocumentStore()
@@ -12,10 +14,10 @@ final class DocumentStore {
     private let defaults = UserDefaults.standard
 
     private enum Key {
-        static let documents = "zhitiao.documents.v2"
         static let config = "zhitiao.aiConfig"
         static let imageConfig = "zhitiao.imageConfig"
-        /// 旧版本的单个正文，用来做一次性迁移
+        /// 旧版本把整份列表存在 UserDefaults 里，`reset()` 时一并清掉
+        static let legacyDocuments = "zhitiao.documents.v2"
         static let legacyText = "zhitiao.text"
         static let legacySpec = "zhitiao.spec"
     }
@@ -24,40 +26,58 @@ final class DocumentStore {
 
     // MARK: - 纸条列表
 
-    var documents: [Document] {
-        get {
-            if let data = defaults.data(forKey: Key.documents),
-               let list = try? JSONDecoder().decode([Document].self, from: data) {
-                return list
-            }
-            return migrateLegacy()
-        }
-        set {
-            guard let data = try? JSONEncoder().encode(newValue) else { return }
-            defaults.set(data, forKey: Key.documents)
+    private var fileURL: URL { AppStorage.url("documents.json") }
+
+    func loadDocuments() -> [SyncedDocument] {
+        AppStorage.migrateLegacyFileIfNeeded("documents.json")
+        guard let data = try? Data(contentsOf: fileURL) else { return [] }
+
+        do {
+            return try Self.decoder.decode(StoredFile.self, from: data).documents
+        } catch {
+            // 文件读不出来时不能直接覆盖，先挪到旁边留证，再按空列表启动
+            let stamp = Int(Date().timeIntervalSince1970)
+            let backup = fileURL.deletingLastPathComponent()
+                .appendingPathComponent("documents-broken-\(stamp).json")
+            try? FileManager.default.moveItem(at: fileURL, to: backup)
+            return []
         }
     }
 
-    /// 老版本只存了一条正文和一个卡片设置，搬成第一条纸条
-    private func migrateLegacy() -> [Document] {
-        guard let text = defaults.string(forKey: Key.legacyText),
-              !text.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        else { return [] }
+    func saveDocuments(_ documents: [SyncedDocument]) {
+        // 空纸条不落盘：新建后马上被杀进程时，别在列表里留一条空白。
+        // 同步过的空纸条要留，因为它后面要变成墓碑。
+        let persistable = documents.filter { !($0.isEmpty && $0.changeTag == nil) }
+        let file = StoredFile(version: StoredFile.currentVersion, documents: persistable)
+        guard let data = try? Self.encoder.encode(file) else { return }
 
-        let snapshot: CardSnapshot
-        if let data = defaults.data(forKey: Key.legacySpec),
-           let saved = try? JSONDecoder().decode(CardSnapshot.self, from: data) {
-            snapshot = saved
-        } else {
-            snapshot = CardSnapshot(spec: CardSpec())
+        do {
+            AppStorage.ensureDirectory()
+            try data.write(to: fileURL, options: .atomic)
+        } catch {
+            // 写盘失败只影响持久化，不该让界面崩。下次改动会再试一次。
         }
-
-        let document = Document(text: text, snapshot: snapshot)
-        defaults.removeObject(forKey: Key.legacyText)
-        defaults.removeObject(forKey: Key.legacySpec)
-        documents = [document]
-        return [document]
     }
+
+    /// 文件里带一个版本号，以后换格式时能判断怎么读
+    private struct StoredFile: Codable {
+        static let currentVersion = 1
+        var version: Int
+        var documents: [SyncedDocument]
+    }
+
+    private static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .millisecondsSince1970
+        encoder.outputFormatting = [.sortedKeys]
+        return encoder
+    }()
+
+    private static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .millisecondsSince1970
+        return decoder
+    }()
 
     // MARK: - 模型配置
 
@@ -86,9 +106,13 @@ final class DocumentStore {
         }
     }
 
-    /// 清掉旧版本残留的两个键（调试用）
-    static func resetLegacy() {
-        UserDefaults.standard.removeObject(forKey: "zhitiao.text")
-        UserDefaults.standard.removeObject(forKey: "zhitiao.spec")
+    /// 清空全部数据（调试用）
+    func reset() {
+        try? FileManager.default.removeItem(at: fileURL)
+        defaults.removeObject(forKey: Key.config)
+        defaults.removeObject(forKey: Key.imageConfig)
+        defaults.removeObject(forKey: Key.legacyDocuments)
+        defaults.removeObject(forKey: Key.legacyText)
+        defaults.removeObject(forKey: Key.legacySpec)
     }
 }

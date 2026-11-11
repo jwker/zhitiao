@@ -1,4 +1,4 @@
-# 纸条 · Zhitiao
+# 纸条儿 · Zhitiao
 
 把文字做成一张排版精美的图片卡片。原生 iOS 应用，SwiftUI + Core Graphics，没有 WebView。
 
@@ -34,11 +34,17 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 
 要求 iOS 17+，Xcode 27。
 
+工程开了 iCloud（CloudKit）能力，容器是 `iCloud.com.jiangweiku.zhitiao`。
+第一次换机器构建前，先在 Xcode → Settings → Accounts 登录付费开发者账号，
+让 Xcode 自动把容器注册到开发者后台；没登录时构建会在签名这一步失败。
+
 ## 用起来
 
-**首页**：纸条列表。每行显示正文第一行 + 后面两行，右侧是相对时间（今天 / 昨天 / 11月6日）。点一行进卡片页，右上角 ＋ 新建。
+**首页**：纸条列表。每行显示正文第一行 + 后面两行，右侧是相对时间（今天 / 昨天 / 11月6日）。点一行直接进文字编辑页，左滑一行删除，右上角 ＋ 新建。有未处理的同步冲突时，列表顶部会出现一条提示，点开逐条选「保留本机 / 保留其他设备 / 两个都留」。
 
-**卡片页 · 选项模式**：上方是卡片预览（点它进入编辑），底部 6 个 tab 切换选项，不再是长滚动。
+**文字编辑页**：顶部一条 63×84 的迷你预览 + 当前样式摘要 + 「卡片 ›」。点迷你预览看大图（点任意处返回），点「卡片 ›」收起编辑、进入卡片选项页。编辑区拿到全宽和剩余高度（17px / 1.9 行高，一屏 9–10 行），每敲一个字迷你预览即时重排。默认不聚焦，点正文才弹键盘；键盘弹起时「正文」那一行右侧出现一个收起键盘的图标，点它只收键盘、不离开编辑页。拖动正文也能收起。
+
+**卡片页 · 选项模式**：从「完成」进入。上方是卡片预览（点它回到编辑），底部 tab 切换选项，不再是长滚动。左上角返回回到文字编辑页。
 
 预览的显示规则：不超过 3:4 的卡片按高度整张显示；比 3:4 更长的卡片按屏幕宽度显示，上下滚动着看，**不缩小**。
 
@@ -53,7 +59,7 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 
 右上角「导出」出 2160×2880 的图片，走系统分享面板。
 
-**卡片页 · 编辑模式**：点卡片进入。上方缩成一条 63×84 的迷你预览（旁边写当前样式：纯色 · 居中 · 荧光笔），编辑区拿到全宽和剩余高度（17px / 1.9 行高，一屏 9–10 行）。每敲一个字迷你预览即时重排。点「看大图」进全屏预览，点任意处返回。右上角「完成」收起键盘。
+
 
 ## 配置模型（已下线）
 
@@ -95,20 +101,30 @@ xcodebuild -project Zhitiao.xcodeproj -scheme Zhitiao \
 
 ## 数据
 
-- 纸条列表存在本机 `UserDefaults`（整份列表是一段 JSON）。**不同步、不上云**：之前用的 iCloud 键值存储已移除，删掉 App 数据就没了。
+- 纸条列表存在 `Application Support/Zhitiao/documents.json`，整份列表一个文件，写入用原子写，带一个格式版本号。**删掉 App 数据就没了。**
+- 每条记录外面包了一层 `SyncedDocument`：里面是纸条本身，外面是同步元数据（墓碑时间、CloudKit 变更标签、同步基线、有没有未上传的改动）。变更标签和基线要等同步引擎接上才会写。
+- 删除：已经同步过的纸条留一条带 `deletedAt` 的墓碑（否则另一台设备拉增量时看不到删除，会把记录推回来）；从没同步过的直接移除。
+- 纸条通过 CloudKit 私有数据库同步，登录同一 Apple ID 的设备自动保持一致。API Key 不同步。
+- 合并规则：正文和样式分开比。样式冲突取较新的；正文两边都改过才进冲突队列，默认先把本机版本传上去，等用户处理。
+- 冲突在列表页顶部提示，点开逐条处理：保留本机、保留其他设备、两个都留。删除冲突只有「保留本机」和「接受删除」两个选择。
+- 设置页有 App 内同步开关。关掉后不联网、数据只留本机；再打开会做一次对账。系统层面的 iCloud 开关关着时，这个开关不可用。
+- 同步触发：本地改完 2 秒、启动、回到前台、CloudKit 静默推送、系统后台刷新（时间不保证）。
+- 删除留 30 天墓碑，之后连服务端记录一起删掉。
 - 每张纸条带自己的卡片设置（背景、对齐、元素、强调样式、字体、配色）。
-- 老版本只存了一条正文，启动时会自动搬成第一条纸条。
 - 空纸条不会被保存（退出时删掉）。
 - Key 只在本机，不上传。
 
 ## 目录
 
 ```
+Info.plist        构建用的 Info.plist：后台任务标识、静默推送需要的后台模式
 Zhitiao/
-├─ App/            界面：ContentView、ListView、CardScreen、CardTabBar、OptionsPanel、FullPreview、Controls、SettingsSheet、WrapRow
+├─ App/            界面：ContentView、ListView、CardScreen、CardTabBar、OptionsPanel、FullPreview、Controls、SettingsSheet、ConflictSheet、WrapRow；AppDelegate、BackgroundSync
 ├─ Core/           排版引擎：Renderer、Drawing（背景/元素/强调）、Illustrations（18 个简笔画）、CardSpec、Document、TextSplit
 ├─ AI/             AIClient（只挑强调词和插画主体）、IllustrationGenerator（图像模型，可选）
-├─ Store/          AppModel（状态）、DocumentStore（本机存储）、CardSnapshot（可存储快照）
+├─ Store/          AppModel（状态）、DocumentStore（文件存储）、SyncedDocument（纸条 + 同步元数据）、CardSnapshot（可存储快照）
+├─ Sync/           CloudKit 配置、账号状态、同步引擎、三方合并、冲突队列
+├─ PrivacyInfo.xcprivacy   隐私清单（UserDefaults 的 required reason）
 .ai/               AI 产物与设计稿（不进版本库，见 .ai/README.md）
 ```
 
@@ -144,6 +160,8 @@ swift .ai/design/make-app-icon.swift "PingFang SC Semibold" \
 ## 已知限制
 
 - 长文不会自动拆成多张卡片：全部排在一张上，卡片会很长。
+- 静默推送和后台刷新都由系统调度，不保证实时；前台同步和手动同步才是主路径。
+- 生产环境的 CloudKit schema 要手动部署，没部署前 TestFlight 包写入会失败。
 - 列表不支持删除（暂定）。
 - 插画默认用内置 18 个简笔画；接图像模型需要另外配置，且图片要经代理取回才能导出。
 - 楷体在部分系统上会回落到宋体。
@@ -153,31 +171,71 @@ swift .ai/design/make-app-icon.swift "PingFang SC Semibold" \
 
 ```bash
 # 直接打开示例纸条的卡片页（选项模式）
-xcrun simctl launch booted com.zhitiao.app --demo
+xcrun simctl launch booted com.jiangweiku.zhitiao --demo
 
-# 打开就进编辑模式 / 打开就进全屏预览 / 跑一次模型分析
-xcrun simctl launch booted com.zhitiao.app --demo --edit
-xcrun simctl launch booted com.zhitiao.app --demo --preview
-xcrun simctl launch booted com.zhitiao.app --demo --generate
+# 打开就进编辑模式 / 打开就进全屏预览 / 打开就聚焦（截图键盘用）
+xcrun simctl launch booted com.jiangweiku.zhitiao --demo --edit
+xcrun simctl launch booted com.jiangweiku.zhitiao --open --focus
+xcrun simctl launch booted com.jiangweiku.zhitiao --demo --preview
+xcrun simctl launch booted com.jiangweiku.zhitiao --demo --generate
 
 # 直接切到某一类选项，例如插画
-xcrun simctl launch booted com.zhitiao.app --demo --generate --tab=illustration
+xcrun simctl launch booted com.jiangweiku.zhitiao --demo --generate --tab=illustration
 
 # 打开设置页 / 自动点一次导出
-xcrun simctl launch booted com.zhitiao.app --settings
-xcrun simctl launch booted com.zhitiao.app --demo --export
+xcrun simctl launch booted com.jiangweiku.zhitiao --settings
+xcrun simctl launch booted com.jiangweiku.zhitiao --demo --export
 
 # 清空全部数据（列表、配置）
-xcrun simctl launch booted com.zhitiao.app --reset
+xcrun simctl launch booted com.jiangweiku.zhitiao --reset
+
+# 查看存储状态（含墓碑）
+xcrun simctl launch booted com.jiangweiku.zhitiao --dump-store
+
+# 立刻同步一次 / 只写同步状态
+xcrun simctl launch booted com.jiangweiku.zhitiao --sync-now
+xcrun simctl launch booted com.jiangweiku.zhitiao --sync-dump
+
+# 清游标和冲突（不动纸条）
+xcrun simctl launch booted com.jiangweiku.zhitiao --sync-reset
+
+# 合并逻辑自检 / 冲突队列快照
+xcrun simctl launch booted com.jiangweiku.zhitiao --merge-selftest
+xcrun simctl launch booted com.jiangweiku.zhitiao --dump-conflicts
+
+# 制造一次真实冲突 / 删除冲突（会改服务端记录，只用于开发）
+xcrun simctl launch booted com.jiangweiku.zhitiao --simulate-conflict --persist
+xcrun simctl launch booted com.jiangweiku.zhitiao --simulate-delete-conflict --persist
+
+# 打开冲突处理页 / 处理第一条冲突
+xcrun simctl launch booted com.jiangweiku.zhitiao --show-conflicts
+xcrun simctl launch booted com.jiangweiku.zhitiao --resolve=keepLocal --persist
+xcrun simctl launch booted com.jiangweiku.zhitiao --resolve=keepServer --persist
+xcrun simctl launch booted com.jiangweiku.zhitiao --resolve=keepBoth --persist
+
+# 关掉 / 打开 App 内同步开关
+xcrun simctl launch booted com.jiangweiku.zhitiao --sync-off
+xcrun simctl launch booted com.jiangweiku.zhitiao --sync-on
+
+# 删掉第一条。加 --persist 才会真的写盘
+xcrun simctl launch booted com.jiangweiku.zhitiao --delete-first --persist
+
+# 把第一条当成「已同步」再删，验证墓碑路径
+xcrun simctl launch booted com.jiangweiku.zhitiao --simulate-synced --delete-first --persist
+
+# 查一次 iCloud 账号状态 / 再跑一次容器读写自检
+# 结果同时写到 App 的 Documents/icloud-status.txt
+xcrun simctl launch booted com.jiangweiku.zhitiao --icloud-status
+xcrun simctl launch booted com.jiangweiku.zhitiao --icloud-probe
 
 # 检查 18 个内置简笔画的风格是否一致
-xcrun simctl launch booted com.zhitiao.app --dump-icons
+xcrun simctl launch booted com.jiangweiku.zhitiao --dump-icons
 ```
 
 调试参数默认不写存储，用来截图和回归，不会污染真实数据。想验证持久化时加 `--persist`：
 
 ```bash
 # 模拟「点 ＋ → 输入 → 完成」，并真的存下来
-xcrun simctl launch booted com.zhitiao.app --new "--type=第一行\n第二行" --end --persist
-xcrun simctl launch booted com.zhitiao.app   # 再正常启动，列表里应该有这一条
+xcrun simctl launch booted com.jiangweiku.zhitiao --new "--type=第一行\n第二行" --end --persist
+xcrun simctl launch booted com.jiangweiku.zhitiao   # 再正常启动，列表里应该有这一条
 ```
